@@ -1,7 +1,7 @@
 # СЕРВЕРНЫЕ ПРИКОЛЫ
 во первых создай .env (если уже настроил postgresql), дальше установи все приколы для nodejs 
 ```
-npm install express mongoose bcryptjs jsonwebtoken cors dotenv
+npm install express mongoose bcryptjs jsonwebtoken cors dotenv bcrypt
 ```
 
 примерчик .env

@@ -136,5 +136,115 @@
   }
 </script>
 
+<script>
+  const API_URL = "http://127.0.0.1:5000/api/auth";
+
+  document.addEventListener('DOMContentLoaded', async () => {
+    await checkAuth();
+  });
+
+  async function checkAuth() {
+    const token = localStorage.getItem('token');
+    if (!token) return;
+    
+    try {
+      const response = await fetch(`${API_URL}/check`, {
+        method: 'GET',
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      });
+      
+      if (response.ok) {
+        const data = await response.json();
+        updateAuthUI(data.username);
+      } else {
+        localStorage.removeItem('token');
+      }
+    } catch (error) {
+      console.error('Ошибка проверки токена:', error);
+    }
+  }
+
+  function updateAuthUI(username) {
+    const loginBtn = document.querySelector('.nav-links li:last-child a');
+    if (!loginBtn) return;
+    
+    loginBtn.innerHTML = `
+      <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" fill="currentColor" viewBox="0 0 178.8 161.9">
+        <path fill="currentColor" d="M69 91c21-6 32-32 25-51C86 21 75 2 53 0 30-2 19 12 16 27c-2 15-2 31 6 47 8 15 26 22 47 17zM59 97c-18 6-44 12-52 38-7 25-10 33-2 39 9 7 56 9 70 9 15 0 51-4 54-11s5-23 2-35c-3-11-18-28-28-35-9-6-26-11-44-5z"/>
+      </svg>
+      ${username}
+    `;
+    loginBtn.onclick = () => {
+      localStorage.removeItem('token');
+      window.location.reload();
+    };
+  }
+
+  document.getElementById('registerForm').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    
+    const email = document.getElementById('email-register').value;
+    const password = document.getElementById('password-register').value;
+    const passwordConfirm = document.getElementById('password-confirm').value;
+    const username = email.split('@')[0];
+    
+    if (password !== passwordConfirm) {
+      alert('Пароли не совпадают');
+      return;
+    }
+    
+    try {
+      const response = await fetch(`${API_URL}/register`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email, password, username })
+      });
+      
+      const data = await response.json();
+      
+      if (response.ok) {
+        localStorage.setItem('token', data.token);
+        updateAuthUI(data.username);
+        alert('Регистрация успешна!');
+        closeLoginModal();
+      } else {
+        alert(data.message || 'Ошибка регистрации');
+      }
+    } catch (error) {
+      alert('Ошибка сети');
+    }
+  });
+
+  document.getElementById('loginForm').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    
+    const email = document.getElementById('email-login').value;
+    const password = document.getElementById('password-login').value;
+    
+    try {
+      const response = await fetch(`${API_URL}/login`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email, password })
+      });
+      
+      const data = await response.json();
+      
+      if (response.ok) {
+        localStorage.setItem('token', data.token);
+        updateAuthUI(data.username);
+        alert('Вход выполнен успешно!');
+        closeLoginModal();
+      } else {
+        alert(data.message || 'Ошибка входа');
+      }
+    } catch (error) {
+      alert('Ошибка сети');
+    }
+  });
+</script>
+
 </body>
 </html>

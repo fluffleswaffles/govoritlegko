@@ -41,14 +41,17 @@
         Персонаж
       </a>
     </li>
-    <li>
-      <a href="#" class="nav-button" onclick="openLoginModal()">
-        <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" fill="currentColor" viewBox="0 0 178.8 161.9">
-          <path fill="currentColor" d="M69 91c21-6 32-32 25-51C86 21 75 2 53 0 30-2 19 12 16 27c-2 15-2 31 6 47 8 15 26 22 47 17zM59 97c-18 6-44 12-52 38-7 25-10 33-2 39 9 7 56 9 70 9 15 0 51-4 54-11s5-23 2-35c-3-11-18-28-28-35-9-6-26-11-44-5z"/>
-        </svg>
-        Вход
-      </a>
-    </li>
+    <li class="account-menu">
+    <a href="#" class="nav-button account-btn" onclick="handleAccountClick()">
+      <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" fill="currentColor" viewBox="0 0 178.8 161.9">
+        <path fill="currentColor" d="M69 91c21-6 32-32 25-51C86 21 75 2 53 0 30-2 19 12 16 27c-2 15-2 31 6 47 8 15 26 22 47 17zM59 97c-18 6-44 12-52 38-7 25-10 33-2 39 9 7 56 9 70 9 15 0 51-4 54-11s5-23 2-35c-3-11-18-28-28-35-9-6-26-11-44-5z"/>
+      </svg>
+      <span class="account-name">Вход</span>
+    </a>
+    <ul class="dropdown-menu">
+      <li><a href="#" class="logout-btn">Выйти</a></li>
+    </ul>
+  </li>
   </ul>
 </nav>
 
@@ -166,22 +169,32 @@
     }
   }
 
-  function updateAuthUI(username) {
-    const loginBtn = document.querySelector('.nav-links li:last-child a');
-    if (!loginBtn) return;
-    
-    loginBtn.innerHTML = `
-      <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" fill="currentColor" viewBox="0 0 178.8 161.9">
-        <path fill="currentColor" d="M69 91c21-6 32-32 25-51C86 21 75 2 53 0 30-2 19 12 16 27c-2 15-2 31 6 47 8 15 26 22 47 17zM59 97c-18 6-44 12-52 38-7 25-10 33-2 39 9 7 56 9 70 9 15 0 51-4 54-11s5-23 2-35c-3-11-18-28-28-35-9-6-26-11-44-5z"/>
-      </svg>
-      ${username}
-    `;
-    loginBtn.onclick = () => {
-      localStorage.removeItem('token');
-      window.location.reload();
-    };
+  function handleAccountClick() {
+    const token = localStorage.getItem('token');
+    if (!token) {
+      openLoginModal();
+    }
   }
 
+  function updateAuthUI(username) {
+    const accountMenu = document.querySelector('.account-menu');
+    const accountName = document.querySelector('.account-name');
+    
+    if (username) {
+      accountName.textContent = username;
+      accountMenu.classList.add('logged-in');
+      document.querySelector('.logout-btn').addEventListener('click', (e) => {
+        e.preventDefault();
+        localStorage.removeItem('token');
+        window.location.reload();
+      });
+      
+    } else {
+      accountMenu.classList.remove('logged-in');
+      accountName.textContent = 'Вход';
+      document.querySelector('.account-btn').onclick = openLoginModal;
+    }
+  }
   document.getElementById('registerForm').addEventListener('submit', async (e) => {
     e.preventDefault();
     

@@ -137,6 +137,7 @@ body {
   border: none;
   font-size: 18px;
   font-weight: bold;
+  font-family: "Bad Comic", sans-serif;
   color: #fdf5f2;
   cursor: pointer;
   padding-bottom: 5px;
@@ -167,7 +168,7 @@ input {
   border-radius: 10px;
   border: 2px solid #355067;
   outline: none;
-  color: #fdf5f2;
+  color: #355067;
 }
 
 input::placeholder {
@@ -178,6 +179,7 @@ button.submit-btn {
   padding: 10px;
   font-size: 16px;
   font-weight: bold;
+  font-family: "Bad Comic", sans-serif;
   background: rgba(255, 255, 255, 0.185);
   color: #fdf5f2;
   border: 3px dashed #d2eaff;
@@ -192,7 +194,53 @@ button.submit-btn {
 }
 
 button.submit-btn:hover {
-  background-color: #fdf5f285;
+  background-color: #fdf5f2;
   color: #6f84b8;
   border-color: #355067;
+}
+
+/* Выпадающее меню аккаунта */
+.account-menu {
+  position: relative;
+}
+
+.dropdown-menu {
+  position: absolute;
+  top: 100%;
+  right: 0;
+  background: #95b1fa;
+  border-radius: 20px;
+  padding: 10px;
+  list-style: none;
+  margin: 5px 0 0 0;
+  min-width: 150px;
+  box-shadow: 0 5px 15px rgba(0,0,0,0.2);
+  opacity: 0;
+  visibility: hidden;
+  transform: translateY(10px);
+  transition: all 0.3s ease;
+  z-index: 100;
+  display: none; 
+}
+
+.account-menu.logged-in .dropdown-menu {
+  display: block;
+}
+
+.account-menu.logged-in:hover .dropdown-menu {
+  opacity: 1;
+  visibility: visible;
+  transform: translateY(0);
+}
+.dropdown-menu a {
+  display: block;
+  padding: 8px 15px;
+  color: #fdf5f2;
+  text-decoration: none;
+  border-radius: 15px;
+  transition: background-color 0.3s ease;
+}
+
+.dropdown-menu a:hover {
+  background-color: #fdf5f2;
 }

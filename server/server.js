@@ -383,6 +383,133 @@ app.get('/api/avatar', async (req, res) => {
   }
 });
 
+app.get('/api/user/inventory', async (req, res) => {
+  try {
+    const token = req.headers.authorization?.split(' ')[1];
+    if (!token) return res.status(401).json({ message: 'Не авторизован' });
+
+    const decoded = jwt.verify(token, process.env.JWT_SECRET);
+    const user = await User.findByPk(decoded.id, {
+      include: {
+        model: Item,
+        through: {
+          attributes: ['equipped']
+        }
+      }
+    });
+
+    if (!user) return res.status(404).json({ message: 'Пользователь не найден' });
+    res.json(user.Items.map(item => ({
+      id: item.id,
+      name: item.name,
+      type: item.type,
+      equipped: item.Inventory.equipped,
+      imageUrl: item.imageUrl
+    })));
+
+  } catch (err) {
+    console.error('Inventory error:', err);
+    res.status(500).json({ message: 'Ошибка сервера' });
+  }
+});
+
+app.post('/api/avatar/equip', async (req, res) => {
+  try {
+    const authHeader = req.headers.authorization;
+    if (!authHeader?.startsWith('Bearer ')) return res.sendStatus(401);
+
+    const token = authHeader.split(' ')[1];
+    const decoded = jwt.verify(token, process.env.JWT_SECRET);
+    
+    const { itemId, itemType } = req.body;
+    console.log('Equip request:', { userId: decoded.id, itemId, itemType });
+    const item = await Item.findByPk(itemId);
+    if (!item) {
+      return res.status(404).json({ message: 'Item not found' });
+    }
+    const inventoryItem = await Inventory.findOne({
+      where: { 
+        UserId: decoded.id,
+        ItemId: itemId
+      }
+    });
+    
+    if (!inventoryItem) {
+      return res.status(400).json({ message: 'Item not in inventory' });
+    }
+    await Inventory.update(
+      { equipped: false },
+      { 
+        where: { 
+          UserId: decoded.id
+        },
+        include: [{
+          model: Item,
+          where: { type: itemType }
+        }]
+      }
+    );
+    await inventoryItem.update({ equipped: true });
+    const user = await User.findByPk(decoded.id, {
+      include: {
+        model: Item,
+        through: { where: { equipped: true } }
+      }
+    });
+    
+    res.json({ 
+      success: true,
+      equippedItems: user.Items.map(item => ({
+        id: item.id,
+        name: item.name,
+        type: item.type,
+        imageUrl: item.imageUrl
+      }))
+    });
+    
+  } catch (err) {
+    console.error('Equip error:', err);
+    res.status(500).json({ 
+      message: 'Failed to equip item',
+      error: process.env.NODE_ENV === 'development' ? err.message : undefined
+    });
+  }
+});
+
+app.post('/api/avatar/save', async (req, res) => {
+  try {
+    const authHeader = req.headers.authorization;
+    if (!authHeader?.startsWith('Bearer ')) return res.sendStatus(401);
+
+    const token = authHeader.split(' ')[1];
+    const decoded = jwt.verify(token, process.env.JWT_SECRET);
+    const user = await User.findByPk(decoded.id, {
+      include: {
+        model: Item,
+        through: { where: { equipped: true } }
+      }
+    });
+    
+    const avatarData = {
+      items: user.Items.map(item => ({
+        id: item.id,
+        type: item.type,
+        imageUrl: item.imageUrl
+      })),
+      updatedAt: new Date()
+    };
+    const [avatar] = await Avatar.upsert({
+      UserId: decoded.id,
+      data: avatarData
+    });
+    
+    res.json({ success: true, avatar });
+    
+  } catch (err) {
+    res.status(500).json({ message: 'Failed to save avatar' });
+  }
+});
+
 async function start() {
   try {
     await sequelize.authenticate();

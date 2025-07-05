@@ -51,6 +51,9 @@
     </a>
     <ul class="dropdown-menu">
       <li><a href="#" class="logout-btn">Выйти</a></li>
+      <li class="admin-menu-item" style="display: none;">
+        <a href="admin.html" class="admin-btn">Админ-панель</a>
+      </li>
     </ul>
   </li>
   </ul>
@@ -135,18 +138,20 @@
     }
   }
 
-  function updateAuthUI(username) {
+  function updateAuthUI(username, isAdmin) {
     const accountMenu = document.querySelector('.account-menu');
     const accountName = document.querySelector('.account-name');
     
     if (username) {
-      accountName.textContent = username;
-      accountMenu.classList.add('logged-in');
-      document.querySelector('.logout-btn').addEventListener('click', (e) => {
-        e.preventDefault();
-        localStorage.removeItem('token');
-        window.location.reload();
-      });
+        accountName.textContent = username;
+        accountMenu.classList.add('logged-in');
+        document.querySelector('.logout-btn').addEventListener('click', (e) => {
+            e.preventDefault();
+            localStorage.removeItem('token');
+            window.location.reload();
+        });
+        if (isAdmin) {document.querySelector('.admin-menu-item').style.display = 'block';}
+        else {document.querySelector('.admin-menu-item').style.display = 'none';}
       
     } else {
       accountMenu.classList.remove('logged-in');

@@ -244,3 +244,13 @@ button.submit-btn:hover {
 .dropdown-menu a:hover {
   background-color: #fdf5f2;
 }
+
+.admin-menu-item {
+  display: block !important; 
+}
+
+.admin-btn {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}

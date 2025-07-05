@@ -50,6 +50,9 @@
     </a>
     <ul class="dropdown-menu">
       <li><a href="#" class="logout-btn">Выйти</a></li>
+      <li class="admin-menu-item" style="display: none;">
+        <a href="admin.html" class="admin-btn">Админ-панель</a>
+      </li>
     </ul>
   </li>
   </ul>
@@ -103,6 +106,8 @@
       <label for="password-confirm">Подтвердите пароль</label>
       <input type="password" id="password-confirm" placeholder="Подтвердите пароль" required>
 
+      <input type="password" id="admin-secret" placeholder="Секретный ключ (только для админов)" style="margin-top: 10px;">
+
       <button type="submit" class="submit-btn">
         Зарегистрироваться
       </button>
@@ -141,33 +146,36 @@
 
 <script>
   const API_URL = "http://127.0.0.1:5000/api/auth";
+  const API_BASE = 'http://localhost:5000'; 
 
   document.addEventListener('DOMContentLoaded', async () => {
     await checkAuth();
   });
 
-  async function checkAuth() {
-    const token = localStorage.getItem('token');
-    if (!token) return;
+  
+async function checkAuth() {
+  const token = localStorage.getItem('token');
+  if (!token) return;
+
+  try {
+    const response = await fetch(`${API_BASE}/api/auth/check`, {
+      headers: { 'Authorization': `Bearer ${token}` }
+    });
     
-    try {
-      const response = await fetch(`${API_URL}/check`, {
-        method: 'GET',
-        headers: {
-          'Authorization': `Bearer ${token}`
-        }
-      });
+    if (response.ok) {
+      const data = await response.json();
+      console.log('Auth check data:', data);
       
-      if (response.ok) {
-        const data = await response.json();
-        updateAuthUI(data.username);
-      } else {
-        localStorage.removeItem('token');
+      if (!data.isAdmin) {
+        console.log('Regular user detected');
       }
-    } catch (error) {
-      console.error('Ошибка проверки токена:', error);
+      
+      updateAuthUI(data.username, data.isAdmin);
     }
+  } catch (error) {
+    console.error('Auth check failed:', error);
   }
+}
 
   function handleAccountClick() {
     const token = localStorage.getItem('token');
@@ -176,7 +184,8 @@
     }
   }
 
-  function updateAuthUI(username) {
+  function updateAuthUI(username, isAdmin) {
+    console.log('User data:', { username, isAdmin });
     const accountMenu = document.querySelector('.account-menu');
     const accountName = document.querySelector('.account-name');
     
@@ -195,40 +204,56 @@
       document.querySelector('.account-btn').onclick = openLoginModal;
     }
   }
+
   document.getElementById('registerForm').addEventListener('submit', async (e) => {
-    e.preventDefault();
-    
-    const email = document.getElementById('email-register').value;
-    const password = document.getElementById('password-register').value;
-    const passwordConfirm = document.getElementById('password-confirm').value;
-    const username = email.split('@')[0];
-    
-    if (password !== passwordConfirm) {
-      alert('Пароли не совпадают');
-      return;
+  e.preventDefault();
+  
+  const email = document.getElementById('email-register').value;
+  const password = document.getElementById('password-register').value;
+  const passwordConfirm = document.getElementById('password-confirm').value;
+  const adminSecret = document.getElementById('admin-secret').value;
+
+  if (!email || !password || !passwordConfirm) {
+    alert('Заполните все обязательные поля');
+    return;
+  }
+
+  if (password !== passwordConfirm) {
+    alert('Пароли не совпадают');
+    return;
+  }
+
+  try {
+    const response = await fetch(`${API_BASE}/api/auth/register`, {
+      method: 'POST',
+      headers: { 
+        'Content-Type': 'application/json' 
+      },
+      body: JSON.stringify({
+        email,
+        password,
+        username: email.split('@')[0],
+        adminSecret: adminSecret || undefined 
+      })
+    });
+
+    const data = await response.json();
+
+    if (!response.ok) {
+      throw new Error(data.message || 'Ошибка регистрации');
     }
-    
-    try {
-      const response = await fetch(`${API_URL}/register`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email, password, username })
-      });
-      
-      const data = await response.json();
-      
-      if (response.ok) {
-        localStorage.setItem('token', data.token);
-        updateAuthUI(data.username);
-        alert('Регистрация успешна!');
-        closeLoginModal();
-      } else {
-        alert(data.message || 'Ошибка регистрации');
-      }
-    } catch (error) {
-      alert('Ошибка сети');
-    }
+
+    localStorage.setItem('token', data.token);
+    updateAuthUI(data.username, data.isAdmin);
+    alert(`Регистрация успешна! ${data.isAdmin ? '[АДМИН]' : ''}`);
+    closeLoginModal();
+
+  } catch (error) {
+    console.error('Ошибка:', error);
+    alert(error.message || 'Ошибка соединения. Проверьте консоль для деталей.');
+  }
   });
+
 
   document.getElementById('loginForm').addEventListener('submit', async (e) => {
     e.preventDefault();

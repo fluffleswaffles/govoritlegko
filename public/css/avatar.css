@@ -60,6 +60,61 @@
   height: 100%;
 }
 
+/* Выпадающее меню аккаунта */
+.account-menu {
+  position: relative;
+}
+
+.dropdown-menu {
+  position: absolute;
+  top: 100%;
+  right: 0;
+  background: #95b1fa;
+  border-radius: 20px;
+  padding: 10px;
+  list-style: none;
+  margin: 5px 0 0 0;
+  min-width: 150px;
+  box-shadow: 0 5px 15px rgba(0,0,0,0.2);
+  opacity: 0;
+  visibility: hidden;
+  transform: translateY(10px);
+  transition: all 0.3s ease;
+  z-index: 100;
+  display: none; 
+}
+
+.account-menu.logged-in .dropdown-menu {
+  display: block;
+}
+
+.account-menu.logged-in:hover .dropdown-menu {
+  opacity: 1;
+  visibility: visible;
+  transform: translateY(0);
+}
+.dropdown-menu a {
+  display: block;
+  padding: 8px 15px;
+  color: #fdf5f2;
+  text-decoration: none;
+  border-radius: 15px;
+  transition: background-color 0.3s ease;
+}
+
+.dropdown-menu a:hover {
+  background-color: #fdf5f2;
+}
+
+.admin-menu-item {
+  border-top: 1px solid rgba(255,255,255,0.2);
+}
+
+.admin-btn {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
 
 .avatar-container {
   display: grid;

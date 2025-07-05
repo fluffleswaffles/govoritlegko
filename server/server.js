@@ -27,6 +27,28 @@ const User = sequelize.define('User', {
   username: { type: DataTypes.STRING, allowNull: false }
 });
 
+// Модель предметов, инвентаря и аватара
+const Item = sequelize.define('Item', {
+  name: { type: DataTypes.STRING, allowNull: false },
+  type: { type: DataTypes.STRING, allowNull: false }, // 'hair', 'clothes', 'accessory'
+  price: { type: DataTypes.INTEGER, allowNull: false },
+  imageUrl: { type: DataTypes.STRING, allowNull: false }
+});
+
+const Inventory = sequelize.define('Inventory', {
+  equipped: { type: DataTypes.BOOLEAN, defaultValue: false }
+});
+
+const Avatar = sequelize.define('Avatar', {
+  data: { type: DataTypes.JSON, allowNull: false }
+});
+
+User.hasOne(Avatar);
+Avatar.belongsTo(User);
+
+User.belongsToMany(Item, { through: Inventory });
+Item.belongsToMany(User, { through: Inventory });
+
 // CORS
 app.use(cors({
   origin: ['http://127.0.0.1:3000', 'http://localhost:3000'],
@@ -80,6 +102,76 @@ app.get('/api/auth/check', async (req, res) => {
     if (!user) return res.sendStatus(401);
 
     res.json({ username: user.username });
+  } catch {
+    res.sendStatus(403);
+  }
+});
+
+// Штука с аватаром
+app.get('/api/avatar', async (req, res) => {
+  const auth = req.headers.authorization;
+  if (!auth || !auth.startsWith('Bearer ')) return res.sendStatus(401);
+
+  const token = auth.split(' ')[1];
+  try {
+    const decoded = jwt.verify(token, process.env.JWT_SECRET);
+      const user = await User.findByPk(decoded.id, {
+      include: [
+        Avatar,
+        { 
+          model: Item,
+          through: { 
+            where: { equipped: true } 
+          }
+        }
+      ]
+    });
+    
+    if (!user) return res.sendStatus(401);
+    
+    res.json({
+      avatar: user.Avatar?.data || {},
+      equippedItems: user.Items || []
+    });
+  } catch {
+    res.sendStatus(403);
+  }
+});
+
+// Эндпоинт для магазина
+app.get('/api/shop', async (req, res) => {
+  try {
+    const items = await Item.findAll();
+    res.json(items);
+  } catch {
+    res.sendStatus(500);
+  }
+});
+
+// Ну и для покупок
+app.post('/api/shop/buy', async (req, res) => {
+  const auth = req.headers.authorization;
+  if (!auth || !auth.startsWith('Bearer ')) return res.sendStatus(401);
+
+  const token = auth.split(' ')[1];
+  try {
+    const decoded = jwt.verify(token, process.env.JWT_SECRET);
+    const user = await User.findByPk(decoded.id);
+    const item = await Item.findByPk(req.body.itemId);
+    
+    if (!user || !item) return res.sendStatus(404);
+    
+    // Здесь должна быть логика проверки баланса пользователя
+    // и списание средств
+    // господи за что
+    
+    await Inventory.create({
+      UserId: user.id,
+      ItemId: item.id,
+      equipped: false
+    });
+    
+    res.json({ success: true });
   } catch {
     res.sendStatus(403);
   }

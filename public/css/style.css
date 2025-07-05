@@ -246,7 +246,11 @@ button.submit-btn:hover {
 }
 
 .admin-menu-item {
-  display: block !important; 
+  display: none !important;
+}
+
+.admin-menu-item.admin-visible {
+  display: block !important;
 }
 
 .admin-btn {

@@ -106,8 +106,15 @@
       <label for="password-confirm">Подтвердите пароль</label>
       <input type="password" id="password-confirm" placeholder="Подтвердите пароль" required>
 
-      <input type="password" id="admin-secret" placeholder="Секретный ключ (только для админов)" style="margin-top: 10px;">
-
+      <div id="admin-secret-container" style="display: none;">
+        <input type="password" id="admin-secret" placeholder="Секретный ключ администратора">
+      </div>
+      <script>
+      document.getElementById('show-admin-register').addEventListener('click', (e) => {
+        e.preventDefault();
+        document.getElementById('admin-secret-container').style.display = 'block';
+      });
+      </script>
       <button type="submit" class="submit-btn">
         Зарегистрироваться
       </button>
@@ -186,6 +193,8 @@ async function checkAuth() {
 
   function updateAuthUI(username, isAdmin) {
     console.log('User data:', { username, isAdmin });
+    const adminMenuItem = document.querySelector('.admin-menu-item');
+
     const accountMenu = document.querySelector('.account-menu');
     const accountName = document.querySelector('.account-name');
     
@@ -197,6 +206,17 @@ async function checkAuth() {
         localStorage.removeItem('token');
         window.location.reload();
       });
+      if (adminMenuItem) {
+        const storedData = localStorage.getItem('userData');
+        const currentUserIsAdmin = storedData ? JSON.parse(storedData).isAdmin : false;
+
+        adminMenuItem.style.display = (isAdmin && currentUserIsAdmin) ? 'block' : 'none';
+        adminMenuItem.classList.toggle('admin-visible', isAdmin);
+        
+        console.log(`Admin button visibility: 
+          Server isAdmin: ${isAdmin}, 
+          Local isAdmin: ${currentUserIsAdmin}`);
+      }
       
     } else {
       accountMenu.classList.remove('logged-in');
@@ -273,8 +293,7 @@ async function checkAuth() {
       if (response.ok) {
         localStorage.setItem('token', data.token);
         updateAuthUI(data.username);
-        alert('Вход выполнен успешно!');
-        closeLoginModal();
+        window.location.reload();
       } else {
         alert(data.message || 'Ошибка входа');
       }

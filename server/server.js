@@ -2,11 +2,15 @@ require('dotenv').config();
 
 const ADMIN_SECRET = process.env.ADMIN_SECRET || 'ADMIN_SECRET=ваш_супер_секретный_ключ';
 
-const express = require('express');
 const cors = require('cors');
 const { Sequelize, DataTypes } = require('sequelize');
 const jwt = require('jsonwebtoken');
 const bcrypt = require('bcrypt');
+
+const multer = require('multer');
+const path = require('path');
+const express = require('express');
+const fs = require('fs').promises;
 
 const app = express();
 
@@ -22,6 +26,8 @@ const sequelize = new Sequelize(
     logging: false
   }
 );
+
+
 
 // Модель пользователя
 const User = sequelize.define('User', {
@@ -60,6 +66,11 @@ app.use(cors({
 }));
 
 app.use(express.json());
+
+app.use('/assets', express.static(
+  path.join(__dirname, 'public', 'assets'),
+  { maxAge: '1y' }
+));
 
 // Регистрация
 app.post('/api/auth/register', async (req, res) => {
@@ -246,30 +257,168 @@ app.patch('/api/admin/users/:id', requireAdmin, async (req, res) => {
   res.json({ success: true });
 });
 
-const multer = require('multer');
-const upload = multer({ dest: 'uploads/' });
+const upload = multer({
+  storage: multer.diskStorage({
+    destination: (req, file, cb) => {
+      const type = req.body.type;
+      const uploadPath = path.join(__dirname, 'public', 'assets', 'avatars', `${type}s`);
+
+      fs.mkdir(uploadPath, { recursive: true })
+        .then(() => cb(null, uploadPath))
+        .catch(err => cb(err));
+    },
+    filename: (req, file, cb) => {
+      const ext = path.extname(file.originalname);
+      const filename = `${req.body.type}_${Date.now()}${ext}`;
+      cb(null, filename);
+    }
+  }),
+  fileFilter: (req, file, cb) => {
+    if (file.mimetype === 'image/png' || file.mimetype === 'image/jpeg') {
+      cb(null, true);
+    } else {
+      cb(new Error('Только изображения PNG и JPEG разрешены'), false);
+    }
+  }
+});
 
 app.post('/api/admin/items', 
   requireAdmin,
   upload.single('image'),
   async (req, res) => {
-    const { type, name, price } = req.body;
-    const fileExt = path.extname(req.file.originalname);
-    const fileName = `${type}_${Date.now()}${fileExt}`;
-    const filePath = path.join(__dirname, 'public', 'assets', 'avatars', `${type}s`, fileName);
-    
-    await fs.promises.rename(req.file.path, filePath);
-    
-    const item = await Item.create({
-      name,
-      type,
-      price,
-      imageUrl: `/assets/avatars/${type}s/${fileName}`
-    });
-    
-    res.json(item);
+    try {
+      if (!req.file) {
+        return res.status(400).json({ error: 'Файл изображения обязателен' });
+      }
+
+      const { name, type, price } = req.body;
+      if (!name || !type || !price) {
+        await fs.unlink(req.file.path).catch(console.error);
+        return res.status(400).json({ error: 'Все поля обязательны для заполнения' });
+      }
+
+      const imageUrl = `/assets/avatars/${type}s/${req.file.filename}`;
+      
+      const item = await Item.create({
+        name,
+        type,
+        price: parseInt(price),
+        imageUrl
+      });
+
+      res.status(201).json(item);
+
+    } catch (error) {
+      console.error('Ошибка добавления предмета:', error);
+      
+      if (req.file) {
+        await fs.unlink(req.file.path).catch(console.error);
+      }
+      
+      res.status(500).json({ 
+        error: 'Ошибка сервера',
+        details: process.env.NODE_ENV === 'development' ? error.message : undefined
+      });
+    }
   }
 );
+
+app.delete('/api/admin/items/:id', requireAdmin, async (req, res) => {
+  try {
+    const item = await Item.findByPk(req.params.id, {
+      include: [{
+        model: User,
+        attributes: ['id'],
+        through: { attributes: [] }
+      }]
+    });
+
+    if (!item) {
+      return res.status(404).json({ error: 'Предмет не найден' });
+    }
+    if (item.imageUrl) {
+      const imagePath = path.join(__dirname, 'public', item.imageUrl);
+      try {
+        await fs.unlink(imagePath);
+      } catch (err) {
+        console.warn('Не удалось удалить файл изображения:', err.message);
+      }
+    }
+    await item.destroy();
+    
+    res.json({ success: true });
+
+  } catch (error) {
+    console.error('Ошибка удаления:', error);
+    res.status(500).json({ error: 'Ошибка сервера' });
+  }
+});
+
+app.get('/api/admin/items', requireAdmin, async (req, res) => {
+  try {
+    const items = await Item.findAll({
+      include: [{
+        model: User,
+        attributes: ['id'],
+        through: { attributes: [] }
+      }]
+    });
+    
+    const itemsWithCount = items.map(item => ({
+      ...item.toJSON(),
+      usersCount: item.Users.length
+    }));
+    
+    res.json(itemsWithCount);
+  } catch (error) {
+    console.error('Ошибка получения предметов:', error);
+    res.status(500).json({ error: 'Ошибка сервера' });
+  }
+});
+
+app.get('/api/admin/items/:id', requireAdmin, async (req, res) => {
+  try {
+    const item = await Item.findByPk(req.params.id, {
+      include: [{
+        model: User,
+        attributes: ['id'],
+        through: { attributes: [] }
+      }]
+    });
+    
+    if (!item) {
+      return res.status(404).json({ error: 'Предмет не найден' });
+    }
+    
+    res.json({
+      ...item.toJSON(),
+      usersCount: item.Users.length
+    });
+  } catch (error) {
+    console.error('Ошибка получения предмета:', error);
+    res.status(500).json({ error: 'Ошибка сервера' });
+  }
+});
+
+app.put('/api/admin/items/:id', requireAdmin, async (req, res) => {
+  try {
+    const { name, type, price } = req.body;
+    const item = await Item.findByPk(req.params.id);
+    
+    if (!item) {
+      return res.status(404).json({ error: 'Предмет не найден' });
+    }
+    
+    await item.update({ name, type, price });
+    res.json(item);
+    
+  } catch (error) {
+    console.error('Ошибка обновления:', error);
+    res.status(500).json({ error: 'Ошибка сервера' });
+  }
+});
+
+app.options('/api/admin/items', cors());
 
 async function start() {
   try {

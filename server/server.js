@@ -1,4 +1,7 @@
 require('dotenv').config();
+
+const ADMIN_SECRET = process.env.ADMIN_SECRET || 'ADMIN_SECRET=ваш_супер_секретный_ключ';
+
 const express = require('express');
 const cors = require('cors');
 const { Sequelize, DataTypes } = require('sequelize');
@@ -24,7 +27,8 @@ const sequelize = new Sequelize(
 const User = sequelize.define('User', {
   email: { type: DataTypes.STRING, unique: true, allowNull: false },
   password: { type: DataTypes.STRING, allowNull: false },
-  username: { type: DataTypes.STRING, allowNull: false }
+  username: { type: DataTypes.STRING, allowNull: false },
+  isAdmin: { type: DataTypes.BOOLEAN, defaultValue: false, allowNull: false}
 });
 
 // Модель предметов, инвентаря и аватара
@@ -59,15 +63,29 @@ app.use(express.json());
 
 // Регистрация
 app.post('/api/auth/register', async (req, res) => {
-  const { email, password, username } = req.body;
+  const { email, password, username, adminSecret } = req.body;
 
   try {
     const hash = await bcrypt.hash(password, 10);
-    const user = await User.create({ email, password: hash, username });
+    const isAdmin = adminSecret === ADMIN_SECRET;
+    
+    const user = await User.create({ 
+      email, 
+      password: hash, 
+      username,
+      isAdmin 
+    });
 
-    const token = jwt.sign({ id: user.id }, process.env.JWT_SECRET, { expiresIn: '1d' });
+    const token = jwt.sign({ 
+      id: user.id,
+      isAdmin: user.isAdmin
+    }, process.env.JWT_SECRET, { expiresIn: '1d' });
 
-    res.json({ token, username: user.username });
+    res.json({ 
+      token, 
+      username: user.username,
+      isAdmin: user.isAdmin 
+    });
   } catch (err) {
     if (err.name === 'SequelizeUniqueConstraintError') {
       return res.status(400).json({ message: 'Email уже зарегистрирован' });
@@ -86,8 +104,16 @@ app.post('/api/auth/login', async (req, res) => {
   const valid = await bcrypt.compare(password, user.password);
   if (!valid) return res.status(400).json({ message: 'Неверный email или пароль' });
 
-  const token = jwt.sign({ id: user.id }, process.env.JWT_SECRET, { expiresIn: '1d' });
-  res.json({ token, username: user.username });
+  const token = jwt.sign({ 
+    id: user.id,
+    isAdmin: user.isAdmin 
+  }, process.env.JWT_SECRET, { expiresIn: '1d' });
+
+  res.json({ 
+    token, 
+    username: user.username,
+    isAdmin: user.isAdmin 
+  });
 });
 
 // Проверка токена
@@ -98,14 +124,41 @@ app.get('/api/auth/check', async (req, res) => {
   const token = auth.split(' ')[1];
   try {
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
-    const user = await User.findByPk(decoded.id);
+    const user = await User.findByPk(decoded.id, {
+      attributes: ['id', 'username', 'isAdmin']
+    });
+    
     if (!user) return res.sendStatus(401);
-
-    res.json({ username: user.username });
-  } catch {
+    
+    res.json({ 
+      username: user.username,
+      isAdmin: user.isAdmin
+    });
+  } catch (err) {
+    console.error('Token check error:', err);
     res.sendStatus(403);
   }
 });
+
+
+function requireAdmin(req, res, next) {
+  const authHeader = req.headers.authorization;
+  
+  if (!authHeader || !authHeader.startsWith('Bearer ')) {
+    return res.status(401).json({ message: 'Требуется авторизация' });
+  }
+
+  const token = authHeader.split(' ')[1];
+  try {
+    const decoded = jwt.verify(token, process.env.JWT_SECRET);
+    if (!decoded.isAdmin) {
+      return res.status(403).json({ message: 'Недостаточно прав' });
+    }
+    next();
+  } catch (err) {
+    res.status(403).json({ message: 'Невалидный токен' });
+  }
+}
 
 // Штука с аватаром
 app.get('/api/avatar', async (req, res) => {
@@ -176,6 +229,47 @@ app.post('/api/shop/buy', async (req, res) => {
     res.sendStatus(403);
   }
 });
+
+// Для админских штук
+app.get('/api/admin/users', requireAdmin, async (req, res) => {
+  const users = await User.findAll({
+    attributes: ['id', 'username', 'email', 'isAdmin']
+  });
+  res.json(users);
+});
+
+app.patch('/api/admin/users/:id', requireAdmin, async (req, res) => {
+  const user = await User.findByPk(req.params.id);
+  if (!user) return res.status(404).json({ message: 'Пользователь не найден' });
+  
+  await user.update({ isAdmin: req.body.isAdmin });
+  res.json({ success: true });
+});
+
+const multer = require('multer');
+const upload = multer({ dest: 'uploads/' });
+
+app.post('/api/admin/items', 
+  requireAdmin,
+  upload.single('image'),
+  async (req, res) => {
+    const { type, name, price } = req.body;
+    const fileExt = path.extname(req.file.originalname);
+    const fileName = `${type}_${Date.now()}${fileExt}`;
+    const filePath = path.join(__dirname, 'public', 'assets', 'avatars', `${type}s`, fileName);
+    
+    await fs.promises.rename(req.file.path, filePath);
+    
+    const item = await Item.create({
+      name,
+      type,
+      price,
+      imageUrl: `/assets/avatars/${type}s/${fileName}`
+    });
+    
+    res.json(item);
+  }
+);
 
 async function start() {
   try {

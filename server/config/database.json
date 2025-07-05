@@ -1,0 +1,9 @@
+{
+  "development": {
+    "username": "admin",
+    "password": "admin",
+    "database": "easy_speak_db",
+    "host": "localhost",
+    "dialect": "postgres"
+  }
+}

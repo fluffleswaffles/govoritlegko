@@ -1,14 +1,13 @@
 <!DOCTYPE html>
 <html lang="ru">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Мой персонаж | Говорить Легко</title>
-  <link rel="stylesheet" href="css/style.css" />
-  <link rel="stylesheet" href="css/avatar.css" />
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Кастомизация персонажа | Говорить Легко</title>
+  <link rel="stylesheet" href="css/style.css">
+  <link rel="stylesheet" href="css/avatar.css">
 </head>
 <body>
-
 <nav class="navbar">
   <div class="logo">плейсхолдер для лого</div>
   <ul class="nav-links">
@@ -32,7 +31,7 @@
       </a>
     </li>
     <li>
-      <a href="#" class="nav-button">
+      <a href="character.html" class="nav-button">
         <svg class="icon" viewBox="0 0 178.8 161.9" fill="currentColor" xmlns="http://www.w3.org/2000/svg" width="24" height="24">
           <g>
             <path d="M89.1.2s29.4-2.6 38.6 12.7c9.2 15.4 1.7-.3 1.7-.3s23.8-18 41.8 2.4c18 20.4-.6 45.3-7.4 50.2-6.8 4.8-23.5 4.2-27.4 1.2-4-3.1-4.4-7-4.4-7s.6 6.3-5.5 10.7c-6 4.5-14.7 7-14.7 7s-1.3 1-1.1 2.7c.2 1.7 2.5 3.8 2.5 3.8s12.3-1 20 11.4c7.9 12.4 4 21 1.7 22.5-2.3 1.6-11.3.6-13.4-1.8l-7-8.7s.3 10.1-.5 14c-.8 4-2.8 8.9-2.8 8.9s8.7.8 12.3 4.8c3.6 4.1 11.4 14.7 7.5 20.7-3.9 6-29.7 7.3-31.8 5.4-2.1-2-8-4.5-8.2-9-.2-4.3-2.5-7.7-2.5-7.7z"/>
@@ -59,83 +58,79 @@
   </ul>
 </nav>
 
-<div class="wave">
-  <svg viewBox="0 0 1440 120" preserveAspectRatio="none">
-    <path
-      d="M0,80 C480,0 960,120 1440,80 L1440,0 L0,0 Z"
-      fill="#95b1fa"
-    ></path>
-  </svg>
-</div>
+  <div class="wave">
+    <svg viewBox="0 0 1440 120" preserveAspectRatio="none">
+      <path d="M0,80 C480,0 960,120 1440,80 L1440,0 L0,0 Z" fill="#95b1fa"></path>
+    </svg>
+  </div>
 
-<main class="avatar-container">
-  <section class="avatar-preview-section">
-    <h1>Мой персонаж</h1>
-    <div class="avatar-wrapper">
-      <div class="avatar-base">
-        <!-- Здесь будет персонаж -->
-       </div>
-    </div>
-    <button class="save-avatar-btn">Сохранить изменения</button>
-  </section>
-    <section class="avatar-customization">
-    <div class="avatar-tabs">
-      <button class="avatar-tab active" data-tab="hair">Причёски</button>
-      <button class="avatar-tab" data-tab="clothes">Одежда</button>
-      <button class="avatar-tab" data-tab="accessories">Аксессуары</button>
-    </div>
-    
-    <div class="avatar-items-container">
-      <div class="avatar-items active" id="hair-items"></div>
-      <div class="avatar-items" id="clothes-items"></div>
-      <div class="avatar-items" id="accessories-items"></div>
-    </div>
-  </section>
-  
-  <section class="avatar-shop">
-    <h2>Магазин</h2>
-    <div class="shop-items">
-    </div>
-  </section>
-</main>
+  <main class="character-container">
+    <section class="avatar-preview-section">
+      <h1>Мой персонаж</h1>
+      <div class="avatar-wrapper">
+        <div class="avatar-base">
+          <!-- Аватар будет рендериться здесь -->
+        </div>
+      </div>
+      <button class="save-avatar-btn">Сохранить изменения</button>
+    </section>
 
-<script src="js/avatar.js"></script>
+    <section class="customization-section">
+      <div class="avatar-tabs">
+        <button class="avatar-tab active" data-tab="hair">Причёски</button>
+        <button class="avatar-tab" data-tab="clothes">Одежда</button>
+        <button class="avatar-tab" data-tab="accessories">Аксессуары</button>
+      </div>
 
+      <div class="avatar-items-container">
+        <div class="avatar-items active" id="hair-items"></div>
+        <div class="avatar-items" id="clothes-items"></div>
+        <div class="avatar-items" id="accessories-items"></div>
+      </div>
+    </section>
+
+    <section class="avatar-shop">
+        <h2>Магазин</h2>
+        <div class="shop-items-container">
+            <!-- Тут будут отображаться предметы -->
+        </div>
+    </section>
+  </main>
+
+  <script src="js/avatar.js"></script>
 <script>
-  const API_URL = "http://127.0.0.1:5000/api/auth";
-
-  document.addEventListener('DOMContentLoaded', async () => {
-    await checkAuth();
-  });
+  const API_BASE = 'http://localhost:5000';
+  let currentUser = null;
 
   async function checkAuth() {
     const token = localStorage.getItem('token');
-    if (!token) return;
-    
+    if (!token) {
+      redirectToLogin();
+      return false;
+    }
+
     try {
-      const response = await fetch(`${API_URL}/check`, {
-        method: 'GET',
-        headers: {
-          'Authorization': `Bearer ${token}`
-        }
+      const response = await fetch(`${API_BASE}/api/auth/check`, {
+        headers: { 'Authorization': `Bearer ${token}` }
       });
       
-      if (response.ok) {
-        const data = await response.json();
-        updateAuthUI(data.username);
-      } else {
-        localStorage.removeItem('token');
+      if (!response.ok) {
+        throw new Error('Invalid token');
       }
+      
+      currentUser = await response.json();
+      updateAuthUI(currentUser.username, currentUser.isAdmin);
+      return true;
     } catch (error) {
-      console.error('Ошибка проверки токена:', error);
+      console.error('Auth check failed:', error);
+      localStorage.removeItem('token');
+      redirectToLogin();
+      return false;
     }
   }
 
-  function handleAccountClick() {
-    const token = localStorage.getItem('token');
-    if (!token) {
-      openLoginModal();
-    }
+  function redirectToLogin() {
+    window.location.href = 'index.html';
   }
 
   function updateAuthUI(username, isAdmin) {
@@ -143,22 +138,36 @@
     const accountName = document.querySelector('.account-name');
     
     if (username) {
-        accountName.textContent = username;
-        accountMenu.classList.add('logged-in');
-        document.querySelector('.logout-btn').addEventListener('click', (e) => {
-            e.preventDefault();
-            localStorage.removeItem('token');
-            window.location.reload();
-        });
-        if (isAdmin) {document.querySelector('.admin-menu-item').style.display = 'block';}
-        else {document.querySelector('.admin-menu-item').style.display = 'none';}
+      accountName.textContent = username;
+      accountMenu.classList.add('logged-in');
       
-    } else {
-      accountMenu.classList.remove('logged-in');
-      accountName.textContent = 'Вход';
-      document.querySelector('.account-btn').onclick = openLoginModal;
+      document.querySelector('.logout-btn').addEventListener('click', (e) => {
+        e.preventDefault();
+        localStorage.removeItem('token');
+        window.location.reload();
+      });
+      
+      const adminItem = document.querySelector('.admin-menu-item');
+      adminItem.style.display = isAdmin ? 'block' : 'none';
     }
   }
-  </script>
+
+  function handleAccountClick() {
+    if (!currentUser) {
+      window.location.href = 'index.html';
+    }
+  }
+  document.addEventListener('DOMContentLoaded', async () => {
+    const isAuthenticated = await checkAuth();
+    if (!isAuthenticated) return;
+    initializeAvatar();
+  });
+
+  function initializeAvatar() {
+    const script = document.createElement('script');
+    script.src = 'js/avatar.js';
+    document.body.appendChild(script);
+  }
+</script>
 </body>
 </html>

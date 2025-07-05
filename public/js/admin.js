@@ -1,193 +1,184 @@
-const API_BASE = 'http://localhost:5000'; 
+const API_BASE = 'http://localhost:5000';
+let items = [];
 
-const editModal = document.getElementById('editModal');
-const editForm = document.getElementById('edit-item-form');
-const closeModalBtn = document.querySelector('.close-modal');
-
-closeModalBtn.addEventListener('click', () => {
-  editModal.style.display = 'none';
+document.addEventListener('DOMContentLoaded', async () => {
+  await checkAdminAuth();
+  initModals();
+  setupForms();
+  await loadData();
 });
 
-window.addEventListener('click', (e) => {
-  if (e.target === editModal) {
-    editModal.style.display = 'none';
+async function checkAdminAuth() {
+  const token = localStorage.getItem('token');
+  if (!token) redirectToLogin();
+
+  try {
+    const response = await fetch(`${API_BASE}/api/auth/check`, {
+      headers: { 'Authorization': `Bearer ${token}` }
+    });
+    const data = await response.json();
+    if (!data.isAdmin) redirectToLogin();
+  } catch (error) {
+    redirectToLogin();
   }
-});
+}
+
+function initModals() {
+  const modal = document.getElementById('editModal');
+  if (!modal) return;
+
+  document.querySelector('.close-modal').addEventListener('click', () => {
+    modal.style.display = 'none';
+  });
+
+  window.addEventListener('click', (e) => {
+    if (e.target === modal) modal.style.display = 'none';
+  });
+}
+
+function setupForms() {
+  // Форма добавления
+  document.getElementById('add-item-form').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const form = e.target;
+    const formData = new FormData(form);
+    
+    try {
+      const response = await fetch(`${API_BASE}/api/admin/items`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${localStorage.getItem('token')}`
+        },
+        body: formData
+      });
+      
+      if (!response.ok) throw new Error('Ошибка добавления');
+      
+      form.reset();
+      await loadItems();
+      alert('Предмет успешно добавлен!');
+    } catch (error) {
+      console.error('Ошибка:', error);
+      alert(error.message);
+    }
+  });
+
+  // Форма редактирования
+  document.getElementById('edit-item-form').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const id = document.getElementById('edit-item-id').value;
+    const data = {
+      name: document.getElementById('edit-item-name').value,
+      type: document.getElementById('edit-item-type').value,
+      price: document.getElementById('edit-item-price').value
+    };
+
+    try {
+      await updateItem(id, data);
+      await loadItems();
+      document.getElementById('editModal').style.display = 'none';
+    } catch (error) {
+      console.error('Ошибка обновления:', error);
+    }
+  });
+}
+
+async function loadData() {
+  await loadItems();
+  await loadUsers();
+}
+
+async function loadItems() {
+  try {
+    const response = await fetch(`${API_BASE}/api/admin/items`, {
+      headers: { 'Authorization': `Bearer ${localStorage.getItem('token')}` }
+    });
+    items = await response.json();
+    renderItems();
+  } catch (error) {
+    console.error('Ошибка загрузки предметов:', error);
+  }
+}
+
+function renderItems() {
+  const container = document.getElementById('admin-items-container');
+  container.innerHTML = '';
+
+  items.forEach(item => {
+    const itemElement = document.createElement('div');
+    itemElement.className = 'admin-item-card';
+    itemElement.innerHTML = `
+      <img src="${API_BASE}${item.imageUrl}" alt="${item.name}" class="admin-item-image">
+      <h3>${item.name}</h3>
+      <p>Тип: ${item.type}</p>
+      <p>Цена: ${item.price} монет</p>
+      <p>Используется: ${item.usersCount || 0} пользователями</p>
+      <div class="item-actions">
+        <button class="edit-btn" data-id="${item.id}">Изменить</button>
+        <button class="delete-btn" data-id="${item.id}">Удалить</button>
+      </div>
+    `;
+    container.appendChild(itemElement);
+  });
+
+  // Делегирование событий
+  container.addEventListener('click', (e) => {
+    const btn = e.target.closest('button');
+    if (!btn) return;
+
+    const itemId = btn.dataset.id;
+    if (!itemId) return;
+
+    if (btn.classList.contains('edit-btn')) {
+      const item = items.find(i => i.id == itemId);
+      if (item) openEditModal(item);
+    } else if (btn.classList.contains('delete-btn')) {
+      deleteItem(itemId);
+    }
+  });
+}
 
 function openEditModal(item) {
   document.getElementById('edit-item-id').value = item.id;
   document.getElementById('edit-item-name').value = item.name;
   document.getElementById('edit-item-type').value = item.type;
   document.getElementById('edit-item-price').value = item.price;
-  
-  editModal.style.display = 'block';
+  document.getElementById('editModal').style.display = 'flex';
 }
 
-editForm.addEventListener('submit', async (e) => {
-  e.preventDefault();
-  
-  const itemId = document.getElementById('edit-item-id').value;
-  const name = document.getElementById('edit-item-name').value;
-  const type = document.getElementById('edit-item-type').value;
-  const price = document.getElementById('edit-item-price').value;
-  
-  try {
-    const response = await fetch(`${API_BASE}/api/admin/items/${itemId}`, {
-      method: 'PUT',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${localStorage.getItem('token')}`
-      },
-      body: JSON.stringify({ name, type, price })
-    });
-    
-    if (!response.ok) {
-      throw new Error('Ошибка при обновлении предмета');
-    }
-    
-    editModal.style.display = 'none';
-    await loadItemsForAdmin();
-    alert('Предмет успешно обновлён!');
-    
-  } catch (error) {
-    console.error('Ошибка редактирования:', error);
-    alert(error.message);
-  }
-});
-
-async function loadItemsForAdmin() {
-  try {
-    const response = await fetch(`${API_BASE}/api/admin/items`, {
-      headers: { 
-        'Authorization': `Bearer ${localStorage.getItem('token')}` 
-      }
-    });
-    
-    if (!response.ok) {
-      const error = await response.json();
-      throw new Error(error.error || 'Ошибка загрузки предметов');
-    }
-    
-    const items = await response.json();
-    renderAdminItems(items);
-  } catch (error) {
-    console.error('Ошибка загрузки предметов:', error);
-    alert(`Ошибка: ${error.message}\nПроверьте консоль для деталей.`);
-    if (error.message.includes('401')) {
-      window.location.href = 'index.html';
-    }
-  }
-}
-
-document.addEventListener('DOMContentLoaded', async () => {
-  await checkAdminAuth();
-  setupItemForm();
-  loadUsers();
-});
-
-async function checkAdminAuth() {
-  const token = localStorage.getItem('token');
-  if (!token) {
-    redirectToLogin();
-    return;
-  }
-
-  try {
-    const response = await fetch(`${API_BASE}/api/auth/check`, {
-  headers: { 'Authorization': `Bearer ${localStorage.getItem('token')}` }
-})
-    
-    if (!response.ok || !(await response.json()).isAdmin) {
-      redirectToLogin();
-    }
-  } catch (error) {
-    redirectToLogin();
-  }
-}
-
-async function addItem(itemData) {
-  try {
-    const formData = new FormData();
-    formData.append('name', itemData.name);
-    formData.append('type', itemData.type);
-    formData.append('price', itemData.price);
-    formData.append('image', itemData.imageFile);
-
-    const response = await fetch(`${API_BASE}/api/admin/items`, {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${localStorage.getItem('token')}`
-      },
-      body: formData
-    });
-
-    if (!response.ok) {
-      const errorData = await response.json();
-      throw new Error(errorData.error || 'Ошибка сервера');
-    }
-
-    return await response.json();
-  } catch (error) {
-    console.error('Ошибка добавления предмета:', error);
-    throw error;
-  }
-}
-
-function redirectToLogin() {
-  alert('Требуются права администратора');
-  window.location.href = 'index.html';
-}
-
-function setupItemForm() {
-  const form = document.getElementById('add-item-form');
-  
-  form.addEventListener('submit', async (e) => {
-    e.preventDefault();
-    
-    const formData = {
-      name: form.name.value.trim(),
-      type: form.type.value,
-      price: form.price.value,
-      imageFile: form.image.files[0]
-    };
-    if (!formData.name || !formData.type || !formData.price || !formData.imageFile) {
-      alert('Заполните все поля и выберите изображение');
-      return;
-    }
-
-    try {
-      const submitBtn = form.querySelector('button[type="submit"]');
-      submitBtn.disabled = true;
-      submitBtn.textContent = 'Добавление...';
-
-      const newItem = await addItem(formData);
-      alert(`Предмет "${newItem.name}" успешно добавлен!`);
-      form.reset();
-      
-      await loadItemsForAdmin();
-      
-    } catch (error) {
-      console.error('Ошибка:', error);
-      alert(`Ошибка: ${error.message}`);
-    } finally {
-      const submitBtn = form.querySelector('button[type="submit"]');
-      submitBtn.disabled = false;
-      submitBtn.textContent = 'Добавить предмет';
-    }
+async function updateItem(id, data) {
+  const response = await fetch(`${API_BASE}/api/admin/items/${id}`, {
+    method: 'PUT',
+    headers: {
+      'Content-Type': 'application/json',
+      'Authorization': `Bearer ${localStorage.getItem('token')}`
+    },
+    body: JSON.stringify(data)
   });
+  if (!response.ok) throw new Error('Ошибка обновления');
+  return await response.json();
+}
+
+async function deleteItem(id) {
+  if (!confirm('Вы уверены, что хотите удалить этот предмет?')) return;
+  try {
+    await fetch(`${API_BASE}/api/admin/items/${id}`, {
+      method: 'DELETE',
+      headers: { 'Authorization': `Bearer ${localStorage.getItem('token')}` }
+    });
+    await loadItems();
+  } catch (error) {
+    console.error('Ошибка удаления:', error);
+  }
 }
 
 async function loadUsers() {
   try {
     const response = await fetch(`${API_BASE}/api/admin/users`, {
       headers: { 'Authorization': `Bearer ${localStorage.getItem('token')}` }
-      
     });
-    
-    if (response.ok) {
-      const users = await response.json();
-      renderUsers(users);
-    }
+    const users = await response.json();
+    renderUsers(users);
   } catch (error) {
     console.error('Ошибка загрузки пользователей:', error);
   }
@@ -211,80 +202,6 @@ function renderUsers(users) {
   `).join('');
 }
 
-async function deleteItemPermanently(itemId) {
-  try {
-    const response = await fetch(`${API_BASE}/api/admin/items/${itemId}`, {
-      headers: { 'Authorization': `Bearer ${localStorage.getItem('token')}` }
-    });
-    
-    if (!response.ok) {
-      const error = await response.json();
-      throw new Error(error.error || 'Не удалось получить информацию о предмете');
-    }
-    
-    const item = await response.json();
-    let confirmMessage = `Вы уверены, что хотите удалить предмет "${item.name}"?`;
-    if (item.usersCount > 0) {
-      confirmMessage += `\n\nВнимание! Этот предмет используется ${item.usersCount} пользователями.`;
-    }
-    
-    if (!confirm(confirmMessage)) return;
-    const deleteResponse = await fetch(`${API_BASE}/api/admin/items/${itemId}`, {
-      method: 'DELETE',
-      headers: { 'Authorization': `Bearer ${localStorage.getItem('token')}` }
-    });
-    
-    if (!deleteResponse.ok) {
-      const error = await deleteResponse.json();
-      throw new Error(error.error || 'Ошибка при удалении');
-    }
-    await loadItemsForAdmin();
-    alert('Предмет успешно удалён!');
-    
-  } catch (error) {
-    console.error('Ошибка удаления:', error);
-    alert(`Ошибка: ${error.message}`);
-  }
-}
-
-function renderAdminItems(items) {
-  const container = document.getElementById('admin-items-container');
-  container.innerHTML = '';
-
-  items.forEach(item => {
-    const itemCard = document.createElement('div');
-    itemCard.className = 'admin-item-card';
-    
-    itemCard.innerHTML = `
-      <img src="${API_BASE}${item.imageUrl}" alt="${item.name}" class="admin-item-image">
-      <h4>${item.name}</h4>
-      <p>Тип: ${item.type}</p>
-      <p>Цена: ${item.price} монет</p>
-      <p>Используется: ${item.usersCount || 0} пользователями</p>
-      <div class="admin-item-actions">
-        <button class="edit-btn" data-id="${item.id}">Изменить</button>
-        <button class="delete-btn-admin" data-id="${item.id}">Удалить</button>
-      </div>
-    `;
-    
-    container.appendChild(itemCard);
-  });
-  document.querySelectorAll('.edit-btn').forEach(btn => {
-    btn.addEventListener('click', () => {
-      const itemId = btn.dataset.id;
-      const item = items.find(i => i.id == itemId);
-      if (item) openEditModal(item);
-    });
-  });
-
-  document.querySelectorAll('.delete-btn-admin').forEach(btn => {
-    btn.addEventListener('click', () => {
-      const itemId = btn.dataset.id;
-      deleteItemPermanently(itemId);
-    });
-  });
-}
-
 async function toggleAdmin(userId, isAdmin) {
   await fetch(`${API_BASE}/api/admin/users/${userId}`, {
     method: 'PATCH',
@@ -294,4 +211,8 @@ async function toggleAdmin(userId, isAdmin) {
     },
     body: JSON.stringify({ isAdmin })
   });
+}
+
+function redirectToLogin() {
+  window.location.href = 'index.html';
 }

@@ -23,8 +23,8 @@
         <input type="number" name="price" placeholder="Цена" required>
         
         <div class="file-upload">
-          <label for="item-image">Изображение (PNG):</label>
-          <input type="file" id="item-image" name="image" accept="image/png" required>
+          <label for="item-image">Изображение (PNG/JPEG):</label>
+          <input type="file" id="item-image" name="image" accept="image/png, image/jpeg" required>
         </div>
         
         <button type="submit">Добавить предмет</button>
@@ -32,10 +32,10 @@
     </div>
 
     <div class="admin-items-list">
-    <h2>Управление предметами</h2>
-    <div class="items-grid" id="admin-items-container">
+      <h2>Управление предметами</h2>
+      <div class="items-grid" id="admin-items-container">
         <!-- Сюда будут загружаться предметы -->
-    </div>
+      </div>
     </div>
         
     <div class="admin-section">
@@ -45,10 +45,10 @@
   </div>
 
   <div id="editModal" class="modal">
-  <div class="modal-content">
-    <span class="close-modal">&times;</span>
-        <h2>Редактировать предмет</h2>
-        <form id="edit-item-form">
+    <div class="modal-content">
+      <span class="close-modal">&times;</span>
+      <h2>Редактировать предмет</h2>
+      <form id="edit-item-form">
         <input type="hidden" id="edit-item-id">
         
         <label for="edit-item-name">Название:</label>
@@ -56,89 +56,19 @@
         
         <label for="edit-item-type">Тип:</label>
         <select id="edit-item-type" required>
-            <option value="hair">Причёска</option>
-            <option value="top">Футболка</option>
-            <option value="bottom">Штаны</option>
+          <option value="hair">Причёска</option>
+          <option value="top">Футболка</option>
+          <option value="bottom">Штаны</option>
         </select>
         
         <label for="edit-item-price">Цена:</label>
-        <input type="number" id="edit-item-price" required>
+        <input type="number" id="edit-item-price" min="0" required>
         
         <button type="submit">Сохранить изменения</button>
-        </form>
+      </form>
     </div>
-    </div>
+  </div>
 
   <script src="js/admin.js"></script>
-  <script>
-document.addEventListener('DOMContentLoaded', async () => {
-  // Проверка прав админа
-  const isAdmin = await checkAdminRights();
-  if (!isAdmin) return;
-
-  // Загрузка предметов
-  await loadItemsForAdmin();
-});
-
-async function checkAdminRights() {
-  const token = localStorage.getItem('token');
-  if (!token) {
-    window.location.href = 'index.html';
-    return false;
-  }
-
-  try {
-    const response = await fetch(`${API_BASE}/api/auth/check`, {
-      headers: { 'Authorization': `Bearer ${token}` }
-    });
-    const data = await response.json();
-    return data.isAdmin;
-  } catch (error) {
-    console.error('Ошибка проверки прав:', error);
-    return false;
-  }
-}
-
-async function loadItemsForAdmin() {
-  try {
-    const response = await fetch(`${API_BASE}/api/admin/items`, {
-      headers: { 'Authorization': `Bearer ${localStorage.getItem('token')}` }
-    });
-    
-    if (!response.ok) throw new Error('Ошибка загрузки');
-    
-    const items = await response.json();
-    renderAdminItems(items);
-  } catch (error) {
-    alert('Ошибка: ' + error.message);
-  }
-}
-
-function renderAdminItems(items) {
-  const container = document.getElementById('admin-items-container');
-  container.innerHTML = '';
-
-  items.forEach(item => {
-    const itemCard = document.createElement('div');
-    itemCard.className = 'admin-item-card';
-    
-    itemCard.innerHTML = `
-      <img src="${API_BASE}${item.imageUrl}" alt="${item.name}" class="admin-item-image">
-      <h4>${item.name}</h4>
-      <p>Тип: ${item.type}</p>
-      <p>Цена: ${item.price} монет</p>
-      <div class="admin-item-actions">
-        <button class="edit-btn">Изменить</button>
-        <button class="delete-btn-admin">Удалить</button>
-      </div>
-    `;
-    itemCard.querySelector('.delete-btn-admin').addEventListener('click', () => {
-      deleteItemPermanently(item.id);
-    });
-    
-    container.appendChild(itemCard);
-  });
-}
-</script>
 </body>
 </html>

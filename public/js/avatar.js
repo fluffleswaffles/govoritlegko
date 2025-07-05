@@ -1,5 +1,4 @@
 const API_BASE_URL = 'http://127.0.0.1:5000';
-
 document.addEventListener('DOMContentLoaded', async () => {
   const token = localStorage.getItem('token');
   if (!token) {
@@ -9,15 +8,13 @@ document.addEventListener('DOMContentLoaded', async () => {
   }
 
   try {
-    const response = await fetch('http://localhost:5000/api/auth/check', {
+    const response = await fetch(`${API_BASE_URL}/api/auth/check`, {
       headers: {
         'Authorization': `Bearer ${token}`
       }
     });
 
-    if (!response.ok) {
-      throw new Error('Невалидный токен');
-    }
+    if (!response.ok) throw new Error('Невалидный токен');
 
     await loadAvatar();
     await loadShopItems();
@@ -68,7 +65,7 @@ function renderAvatar(avatarData, equippedItems) {
   equippedItems.forEach(item => {
     const part = document.createElement('div');
     part.className = `avatar-part ${item.type}`;
-    part.style.backgroundImage = `url(${item.imageUrl})`;
+    part.style.backgroundImage = `url(${API_BASE_URL}${item.imageUrl})`;
     avatarBase.appendChild(part);
   });
 }
@@ -88,7 +85,7 @@ function renderInventory(items) {
     itemElement.dataset.type = item.type;
     
     const img = document.createElement('img');
-    img.src = item.imageUrl;
+    img.src = `${API_BASE_URL}${item.imageUrl}`;
     img.alt = item.name;
     
     itemElement.appendChild(img);
@@ -100,7 +97,7 @@ function renderInventory(items) {
 
 async function equipItem(itemId, itemType) {
   try {
-    const response = await fetch('/api/avatar/equip', {
+    const response = await fetch(`${API_BASE_URL}/api/avatar/equip`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -109,9 +106,7 @@ async function equipItem(itemId, itemType) {
       body: JSON.stringify({ itemId, itemType })
     });
     
-    if (response.ok) {
-      await loadAvatar();
-    }
+    if (response.ok) await loadAvatar();
   } catch (error) {
     console.error('Ошибка экипировки:', error);
   }
@@ -138,7 +133,7 @@ function renderShopItems(items) {
     itemElement.className = 'shop-item';
     
     const img = document.createElement('img');
-    img.src = item.imageUrl;
+    img.src = `${API_BASE_URL}${item.imageUrl}`;
     img.alt = item.name;
     
     const name = document.createElement('span');
@@ -158,7 +153,7 @@ function renderShopItems(items) {
 
 async function buyItem(itemId) {
   try {
-    const response = await fetch('/api/shop/buy', {
+    const response = await fetch(`${API_BASE_URL}/api/shop/buy`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -202,7 +197,7 @@ function setupSaveButton() {
     try {
       const avatarData = {};
       
-      const response = await fetch('/api/avatar', {
+      const response = await fetch(`${API_BASE_URL}/api/avatar`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

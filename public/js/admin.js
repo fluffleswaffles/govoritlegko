@@ -37,7 +37,6 @@ function initModals() {
 }
 
 function setupForms() {
-  // Форма добавления
   document.getElementById('add-item-form').addEventListener('submit', async (e) => {
     e.preventDefault();
     const form = e.target;
@@ -62,8 +61,6 @@ function setupForms() {
       alert(error.message);
     }
   });
-
-  // Форма редактирования
   document.getElementById('edit-item-form').addEventListener('submit', async (e) => {
     e.preventDefault();
     const id = document.getElementById('edit-item-id').value;
@@ -121,7 +118,6 @@ function renderItems() {
     container.appendChild(itemElement);
   });
 
-  // Делегирование событий
   container.addEventListener('click', (e) => {
     const btn = e.target.closest('button');
     if (!btn) return;

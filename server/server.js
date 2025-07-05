@@ -77,6 +77,19 @@ const Inventory = sequelize.define('Inventory', {
   }
 });
 
+const AvatarStorage = sequelize.define('AvatarStorage', {
+  equippedItems: {
+    type: DataTypes.JSONB,
+    allowNull: false,
+    defaultValue: []
+  }
+}, {
+  timestamps: true
+});
+
+User.hasOne(AvatarStorage);
+AvatarStorage.belongsTo(User);
+
 User.belongsToMany(Item, { through: Inventory });
 Item.belongsToMany(User, { through: Inventory });
 
@@ -132,7 +145,7 @@ const upload = multer({
       cb(new Error('Only image files are allowed'), false);
     }
   },
-  limits: { fileSize: 5 * 1024 * 1024 } // 5MB
+  limits: { fileSize: 5 * 1024 * 1024 } 
 });
 
 app.post('/api/auth/register', async (req, res) => {
@@ -475,38 +488,101 @@ app.post('/api/avatar/equip', async (req, res) => {
     });
   }
 });
-
-app.post('/api/avatar/save', async (req, res) => {
+app.post('/api/avatar/save-state', async (req, res) => {
+  const transaction = await sequelize.transaction();
   try {
     const authHeader = req.headers.authorization;
-    if (!authHeader?.startsWith('Bearer ')) return res.sendStatus(401);
+    if (!authHeader?.startsWith('Bearer ')) {
+      await transaction.rollback();
+      return res.status(401).json({ 
+        success: false,
+        message: 'Требуется авторизация' 
+      });
+    }
 
     const token = authHeader.split(' ')[1];
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
-    const user = await User.findByPk(decoded.id, {
-      include: {
+    const userWithItems = await User.findByPk(decoded.id, {
+      include: [{
         model: Item,
-        through: { where: { equipped: true } }
-      }
+        through: { where: { equipped: true } },
+        attributes: ['id', 'type', 'imageUrl']
+      }],
+      transaction
     });
-    
-    const avatarData = {
-      items: user.Items.map(item => ({
+
+    if (!userWithItems) {
+      await transaction.rollback();
+      return res.status(404).json({
+        success: false,
+        message: 'Пользователь не найден'
+      });
+    }
+    const state = {
+      equippedItems: userWithItems.Items.map(item => ({
         id: item.id,
         type: item.type,
         imageUrl: item.imageUrl
       })),
       updatedAt: new Date()
     };
-    const [avatar] = await Avatar.upsert({
-      UserId: decoded.id,
-      data: avatarData
+    let storage = await AvatarStorage.findOne({
+      where: { UserId: decoded.id },
+      transaction
     });
+
+    if (storage) {
+      await storage.update({
+        equippedItems: state.equippedItems
+      }, { transaction });
+    } else {
+      storage = await AvatarStorage.create({
+        UserId: decoded.id,
+        equippedItems: state.equippedItems
+      }, { transaction });
+    }
+
+    await transaction.commit();
+
+    return res.status(200).json({
+      success: true,
+      state: storage.equippedItems,
+      message: storage ? 'Состояние обновлено' : 'Состояние сохранено',
+      updatedAt: storage.updatedAt
+    });
+
+  } catch (error) {
+    await transaction.rollback();
+    console.error('Save state error:', error);
     
-    res.json({ success: true, avatar });
-    
-  } catch (err) {
-    res.status(500).json({ message: 'Failed to save avatar' });
+    return res.status(500).json({ 
+      success: false,
+      message: 'Ошибка сохранения состояния аватара',
+      error: process.env.NODE_ENV === 'development' ? error.message : undefined
+    });
+  }
+});
+
+app.get('/api/avatar/load-state', async (req, res) => {
+  try {
+    const authHeader = req.headers.authorization;
+    if (!authHeader) return res.status(401).json({ message: 'Unauthorized' });
+
+    const token = authHeader.split(' ')[1];
+    const decoded = jwt.verify(token, process.env.JWT_SECRET);
+    const storage = await AvatarStorage.findOne({
+      where: { UserId: decoded.id }
+    });
+    res.json({
+      equippedItems: storage?.equippedItems || []
+    });
+
+  } catch (error) {
+    console.error('Load state error:', error);
+    res.status(500).json({ 
+      message: 'Failed to load avatar state',
+      error: error.message
+    });
   }
 });
 

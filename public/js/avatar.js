@@ -1,7 +1,7 @@
 const API_BASE = 'http://localhost:5000';
 let currentUser = null;
-let userInventory = [];
 let equippedItems = [];
+let userInventory = [];
 let allItems = [];
 
 document.addEventListener('DOMContentLoaded', async () => {
@@ -339,25 +339,115 @@ async function buyItem(itemId) {
   }
 }
 
-async function saveAvatar() {
+async function saveAvatarState() {
+  const loader = document.createElement('div');
+  loader.className = 'save-loader';
+  loader.textContent = 'Сохранение...';
+  document.body.appendChild(loader);
+
   try {
-    const response = await fetch(`${API_BASE}/api/avatar/save`, {
+    const response = await fetch(`${API_BASE}/api/avatar/save-state`, {
       method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${localStorage.getItem('token')}`,
+        'Content-Type': 'application/json'
+      }
+    });
+
+    const data = await response.json();
+    console.log('Save response:', data);
+
+    if (!response.ok) {
+      throw new Error(data.message || `HTTP error! status: ${response.status}`);
+    }
+    if (!data || !data.success) {
+      throw new Error('Неверный формат ответа сервера');
+    }
+    if (data.state) {
+      equippedItems = data.state;
+      renderAvatar();
+    }
+
+    showNotification('Аватар успешно сохранён!', 'success');
+
+  } catch (error) {
+    console.error('Save state error:', error);
+    showNotification(`Ошибка сохранения: ${error.message}`, 'error');
+    checkActualSavedState();
+  } finally {
+    loader.remove();
+  }
+}
+async function checkActualSavedState() {
+  try {
+    const response = await fetch(`${API_BASE}/api/avatar/load-state`, {
       headers: {
         'Authorization': `Bearer ${localStorage.getItem('token')}`
       }
     });
     
-    if (!response.ok) {
-      const error = await response.json();
-      throw new Error(error.message || 'Save failed');
+    const data = await response.json();
+    if (data.equippedItems) {
+      console.log('Фактическое сохранённое состояние:', data.equippedItems);
     }
-    
-    showNotification('Аватар сохранен!');
-    
   } catch (error) {
-    console.error('Save error:', error);
-    showNotification('Ошибка сохранения аватара', 'error');
+    console.error('Check state error:', error);
+  }
+}
+
+async function loadAvatarState() {
+  try {
+    const response = await fetch(`${API_BASE}/api/avatar/load-state`, {
+      headers: {
+        'Authorization': `Bearer ${localStorage.getItem('token')}`
+      }
+    });
+
+    const data = await response.json();
+
+    if (!response.ok) {
+      throw new Error(data.message || 'Ошибка загрузки');
+    }
+    equippedItems = data.equippedItems;
+    await updateInventory();
+    await applyEquippedItems();
+    
+    renderAvatar();
+    renderInventory();
+
+    console.log('Avatar state loaded:', data);
+
+  } catch (error) {
+    console.error('Load state error:', error);
+    equippedItems = [];
+    showNotification('Не удалось загрузить состояние', 'error');
+  }
+}
+
+async function applyEquippedItems() {
+  try {
+    await fetch(`${API_BASE}/api/avatar/unequip-all`, {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${localStorage.getItem('token')}`,
+        'Content-Type': 'application/json'
+      }
+    });
+    for (const item of equippedItems) {
+      await fetch(`${API_BASE}/api/avatar/equip`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${localStorage.getItem('token')}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          itemId: item.id,
+          itemType: item.type
+        })
+      });
+    }
+  } catch (error) {
+    console.error('Apply equipped items error:', error);
   }
 }
 
@@ -437,7 +527,7 @@ function setupEventListeners() {
   }
   const saveBtn = document.querySelector('.save-avatar-btn');
   if (saveBtn) {
-    saveBtn.addEventListener('click', saveAvatar);
+    saveBtn.addEventListener('click', saveAvatarState);
   }
   document.querySelector('.shop-items-container')?.addEventListener('click', (e) => {
     const buyBtn = e.target.closest('.buy-btn');

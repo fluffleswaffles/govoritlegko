@@ -1,11 +1,35 @@
 const API_BASE_URL = 'http://127.0.0.1:5000';
 
 document.addEventListener('DOMContentLoaded', async () => {
-  await checkAuth();
-  await loadAvatar();
-  await loadShopItems();
-  setupTabs();
-  setupSaveButton();
+  const token = localStorage.getItem('token');
+  if (!token) {
+    alert('Пожалуйста, войдите в аккаунт для доступа к персонажу');
+    window.location.href = 'index.html';
+    return;
+  }
+
+  try {
+    const response = await fetch('http://localhost:5000/api/auth/check', {
+      headers: {
+        'Authorization': `Bearer ${token}`
+      }
+    });
+
+    if (!response.ok) {
+      throw new Error('Невалидный токен');
+    }
+
+    await loadAvatar();
+    await loadShopItems();
+    setupTabs();
+    setupSaveButton();
+
+  } catch (error) {
+    console.error('Ошибка проверки авторизации:', error);
+    localStorage.removeItem('token'); 
+    alert('Сессия истекла. Пожалуйста, войдите снова.');
+    window.location.href = 'index.html';
+  }
 });
 
 async function checkAuth() {

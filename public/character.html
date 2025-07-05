@@ -9,6 +9,52 @@
 </head>
 <body>
 
+<nav class="navbar">
+  <div class="logo">плейсхолдер для лого</div>
+  <ul class="nav-links">
+    <li>
+      <a href="index.html" class="nav-button">
+        <svg class="icon" viewBox="0 0 178.8 161.9" fill="currentColor" xmlns="http://www.w3.org/2000/svg" width="24" height="24">
+          <path fill="currentColor" d="M1 30s-3-14 1-20C7 3 21 0 48 0l40 1c3 2 33 28 33 38l1 114s2 11-6 11l-44-2c-15 0-37 8-48 8s-18-9-18-14L1 30z"/>
+        </svg>
+        Главная
+      </a>
+    </li>
+    <li>
+      <a href="games.html" class="nav-button">
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="35 50 135 167.5" fill="currentColor" width="24" height="24" class="icon">
+          <g>
+            <path d="M101 88h20s3-11 24-11c22 0 42 19 42 50s-3 69-13 75c-11 7-29-14-33-22l-9-14h-31z" />
+            <path d="M102 88H82s-2-12-24-12-42 20-42 51 3 69 14 75c10 6 28-15 33-22l9-14h30z" />
+          </g>
+        </svg>
+        Игры
+      </a>
+    </li>
+    <li>
+      <a href="#" class="nav-button">
+        <svg class="icon" viewBox="0 0 178.8 161.9" fill="currentColor" xmlns="http://www.w3.org/2000/svg" width="24" height="24">
+          <g>
+            <path d="M89.1.2s29.4-2.6 38.6 12.7c9.2 15.4 1.7-.3 1.7-.3s23.8-18 41.8 2.4c18 20.4-.6 45.3-7.4 50.2-6.8 4.8-23.5 4.2-27.4 1.2-4-3.1-4.4-7-4.4-7s.6 6.3-5.5 10.7c-6 4.5-14.7 7-14.7 7s-1.3 1-1.1 2.7c.2 1.7 2.5 3.8 2.5 3.8s12.3-1 20 11.4c7.9 12.4 4 21 1.7 22.5-2.3 1.6-11.3.6-13.4-1.8l-7-8.7s.3 10.1-.5 14c-.8 4-2.8 8.9-2.8 8.9s8.7.8 12.3 4.8c3.6 4.1 11.4 14.7 7.5 20.7-3.9 6-29.7 7.3-31.8 5.4-2.1-2-8-4.5-8.2-9-.2-4.3-2.5-7.7-2.5-7.7z"/>
+            <path d="M89.7.5S60.2-2 51 13.3c-9.2 15.3-1.7-.3-1.7-.3S25.6-5 7.6 15.4c-18 20.3.6 45.2 7.4 50.1 6.8 5 23.5 4.3 27.4 1.2 3.9-3 4.4-6.9 4.4-6.9s-.6 6.2 5.5 10.7c6 4.5 14.6 6.9 14.6 6.9s1.4 1 1.2 2.8c-.2 1.7-2.6 3.8-2.6 3.8s-12.2-1.1-20 11.3c-7.8 12.5-3.9 21-1.6 22.6 2.3 1.6 11.3.6 13.4-1.8l7-8.7s-.4 10 .4 14 2.8 8.8 2.8 8.8-8.7.8-12.2 5c-3.6 4-11.4 14.6-7.5 20.5 3.9 6 29.7 7.3 31.8 5.4 2-1.9 8-4.5 8.2-8.8.2-4.4 2.4-7.8 2.4-7.8z"/>
+          </g>
+        </svg>
+        Персонаж
+      </a>
+    </li>
+    <li class="account-menu">
+    <a href="#" class="nav-button account-btn" onclick="handleAccountClick()">
+      <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" fill="currentColor" viewBox="0 0 178.8 161.9">
+        <path fill="currentColor" d="M69 91c21-6 32-32 25-51C86 21 75 2 53 0 30-2 19 12 16 27c-2 15-2 31 6 47 8 15 26 22 47 17zM59 97c-18 6-44 12-52 38-7 25-10 33-2 39 9 7 56 9 70 9 15 0 51-4 54-11s5-23 2-35c-3-11-18-28-28-35-9-6-26-11-44-5z"/>
+      </svg>
+      <span class="account-name">Вход</span>
+    </a>
+    <ul class="dropdown-menu">
+      <li><a href="#" class="logout-btn">Выйти</a></li>
+    </ul>
+  </li>
+  </ul>
+</nav>
 
 <div class="wave">
   <svg viewBox="0 0 1440 120" preserveAspectRatio="none">
@@ -51,5 +97,63 @@
 </main>
 
 <script src="js/avatar.js"></script>
+
+<script>
+  const API_URL = "http://127.0.0.1:5000/api/auth";
+
+  document.addEventListener('DOMContentLoaded', async () => {
+    await checkAuth();
+  });
+
+  async function checkAuth() {
+    const token = localStorage.getItem('token');
+    if (!token) return;
+    
+    try {
+      const response = await fetch(`${API_URL}/check`, {
+        method: 'GET',
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      });
+      
+      if (response.ok) {
+        const data = await response.json();
+        updateAuthUI(data.username);
+      } else {
+        localStorage.removeItem('token');
+      }
+    } catch (error) {
+      console.error('Ошибка проверки токена:', error);
+    }
+  }
+
+  function handleAccountClick() {
+    const token = localStorage.getItem('token');
+    if (!token) {
+      openLoginModal();
+    }
+  }
+
+  function updateAuthUI(username) {
+    const accountMenu = document.querySelector('.account-menu');
+    const accountName = document.querySelector('.account-name');
+    
+    if (username) {
+      accountName.textContent = username;
+      accountMenu.classList.add('logged-in');
+      document.querySelector('.logout-btn').addEventListener('click', (e) => {
+        e.preventDefault();
+        localStorage.removeItem('token');
+        window.location.reload();
+      });
+      
+    } else {
+      accountMenu.classList.remove('logged-in');
+      accountName.textContent = 'Вход';
+      document.querySelector('.account-btn').onclick = openLoginModal;
+    }
+  }
+  </script>
 </body>
 </html>

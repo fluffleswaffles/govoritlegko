@@ -1,0 +1,55 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Мой персонаж | Говорить Легко</title>
+  <link rel="stylesheet" href="css/style.css" />
+  <link rel="stylesheet" href="css/avatar.css" />
+</head>
+<body>
+
+
+<div class="wave">
+  <svg viewBox="0 0 1440 120" preserveAspectRatio="none">
+    <path
+      d="M0,80 C480,0 960,120 1440,80 L1440,0 L0,0 Z"
+      fill="#95b1fa"
+    ></path>
+  </svg>
+</div>
+
+<main class="avatar-container">
+  <section class="avatar-preview-section">
+    <h1>Мой персонаж</h1>
+    <div class="avatar-wrapper">
+      <div class="avatar-base">
+        <!-- Здесь будет персонаж -->
+       </div>
+    </div>
+    <button class="save-avatar-btn">Сохранить изменения</button>
+  </section>
+    <section class="avatar-customization">
+    <div class="avatar-tabs">
+      <button class="avatar-tab active" data-tab="hair">Причёски</button>
+      <button class="avatar-tab" data-tab="clothes">Одежда</button>
+      <button class="avatar-tab" data-tab="accessories">Аксессуары</button>
+    </div>
+    
+    <div class="avatar-items-container">
+      <div class="avatar-items active" id="hair-items"></div>
+      <div class="avatar-items" id="clothes-items"></div>
+      <div class="avatar-items" id="accessories-items"></div>
+    </div>
+  </section>
+  
+  <section class="avatar-shop">
+    <h2>Магазин</h2>
+    <div class="shop-items">
+    </div>
+  </section>
+</main>
+
+<script src="js/avatar.js"></script>
+</body>
+</html>

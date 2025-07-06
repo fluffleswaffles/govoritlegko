@@ -44,6 +44,11 @@ const User = sequelize.define('User', {
     type: DataTypes.BOOLEAN, 
     defaultValue: false, 
     allowNull: false 
+  },
+  coins: {
+    type: DataTypes.INTEGER,
+    defaultValue: 100,
+    allowNull: false
   }
 });
 
@@ -348,27 +353,73 @@ app.get('/api/shop', async (req, res) => {
 });
 
 app.post('/api/shop/buy', async (req, res) => {
+  const transaction = await sequelize.transaction();
+  
   try {
-    const authHeader = req.headers.authorization;
-    if (!authHeader?.startsWith('Bearer ')) return res.sendStatus(401);
-
-    const token = authHeader.split(' ')[1];
+    const { itemId } = req.body;
+    const token = req.headers.authorization?.split(' ')[1];
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
-    
-    const user = await User.findByPk(decoded.id);
-    const item = await Item.findByPk(req.body.itemId);
-    
-    if (!user || !item) return res.status(404).json({ message: 'User or item not found' });
 
+    const [user, item] = await Promise.all([
+      User.findByPk(decoded.id, { transaction }),
+      Item.findByPk(itemId, { transaction })
+    ]);
+
+    if (!user || !item) {
+      await transaction.rollback();
+      return res.status(404).json({ success: false, message: 'Пользователь или предмет не найден' });
+    }
+    if (user.coins < item.price) {
+      await transaction.rollback();
+      return res.status(400).json({ success: false, message: 'Недостаточно монет' });
+    }
+    const existingItem = await Inventory.findOne({
+      where: { UserId: user.id, ItemId: item.id },
+      transaction
+    });
+
+    if (existingItem) {
+      await transaction.rollback();
+      return res.status(400).json({ success: false, message: 'У вас уже есть этот предмет' });
+    }
+
+    await user.update({ coins: user.coins - item.price }, { transaction });
     await Inventory.create({
       UserId: user.id,
       ItemId: item.id,
       equipped: false
+    }, { transaction });
+
+    await transaction.commit();
+
+    res.json({ 
+      success: true,
+      newBalance: user.coins - item.price,
+      item: { id: item.id, name: item.name }
     });
+
+  } catch (error) {
+    await transaction.rollback();
+    res.status(500).json({ 
+      success: false,
+      message: 'Ошибка покупки',
+      error: process.env.NODE_ENV === 'development' ? error.message : undefined
+    });
+  }
+});
+
+app.get('/api/user/me', async (req, res) => {
+  try {
+    const token = req.headers.authorization?.split(' ')[1];
+    const decoded = jwt.verify(token, process.env.JWT_SECRET);
     
-    res.json({ success: true });
-  } catch (err) {
-    res.status(500).json({ message: 'Purchase failed' });
+    const user = await User.findByPk(decoded.id, {
+      attributes: ['id', 'username', 'coins']
+    });
+
+    res.json(user);
+  } catch (error) {
+    res.status(500).json({ message: 'Ошибка загрузки данных' });
   }
 });
 

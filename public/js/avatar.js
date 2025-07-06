@@ -4,11 +4,14 @@ let equippedItems = [];
 let userInventory = [];
 let allItems = [];
 
+let userCoins = 0;
+
 document.addEventListener('DOMContentLoaded', async () => {
   try {
     await checkAuthAndLoadData();
     await initializeAvatarPage();
     setupEventListeners();
+    loadUserData();
   } catch (error) {
     console.error('Initialization error:', error);
     handleAuthError();
@@ -69,11 +72,11 @@ async function checkAuthAndLoadData() {
 }
 async function initializeAvatarPage() {
   try {
+    await checkAuthAndLoadData();
     setupTabs();
     updateUI();
   } catch (error) {
-    console.error('Page initialization failed:', error);
-    throw error;
+    console.error('Ошибка инициализации:', error);
   }
 }
 
@@ -107,6 +110,17 @@ async function loadShopItems() {
   }
 }
 
+async function updateCoinsDisplay() {
+  const coinsElement = document.querySelector('.coins-count');
+  if (coinsElement) {
+    coinsElement.textContent = userCoins;
+    coinsElement.classList.add('coins-update');
+    setTimeout(() => {
+      coinsElement.classList.remove('coins-update');
+    }, 500);
+  }
+}
+
 function updateAuthUI(username, isAdmin) {
   const accountMenu = document.querySelector('.account-menu');
   const accountName = document.querySelector('.account-name');
@@ -128,6 +142,19 @@ function updateAuthUI(username, isAdmin) {
     if (adminItem) {
       adminItem.style.display = isAdmin ? 'block' : 'none';
     }
+  }
+}
+
+async function loadUserData() {
+  try {
+    const response = await fetch(`${API_BASE}/api/user/me`, {
+      headers: { 'Authorization': `Bearer ${localStorage.getItem('token')}` }
+    });
+    const data = await response.json();
+    userCoins = data.coins || 0;
+    updateCoinsDisplay();
+  } catch (error) {
+    console.error('Ошибка загрузки данных:', error);
   }
 }
 
@@ -303,39 +330,28 @@ async function toggleItemEquip(itemId, itemType) {
 }
 
 
+
 async function buyItem(itemId) {
   try {
-    showNotification('Покупка...', 'info');
-    
     const response = await fetch(`${API_BASE}/api/shop/buy`, {
       method: 'POST',
       headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${localStorage.getItem('token')}`
+        'Authorization': `Bearer ${localStorage.getItem('token')}`,
+        'Content-Type': 'application/json'
       },
       body: JSON.stringify({ itemId })
     });
-    
+
+    const data = await response.json();
+
     if (!response.ok) {
-      const error = await response.json();
-      throw new Error(error.message || 'Ошибка покупки');
+      throw new Error(data.message || 'Ошибка покупки');
     }
-
-    const inventoryResponse = await fetch(`${API_BASE}/api/user/inventory`, {
-      headers: { 'Authorization': `Bearer ${localStorage.getItem('token')}` }
-    });
-    
-    if (!inventoryResponse.ok) throw new Error('Не удалось загрузить инвентарь');
-    
-    userInventory = await inventoryResponse.json();
-
-    renderShopItems();
-    renderInventory();
-    showNotification('Предмет куплен!', 'success');
+    window.location.reload();
     
   } catch (error) {
+    showNotification(error.message, 'error');
     console.error('Ошибка покупки:', error);
-    showNotification(`${error.message}`, 'error');
   }
 }
 

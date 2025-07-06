@@ -162,10 +162,22 @@
 .avatar-tabs {
   display: flex;
   gap: 10px;
-  margin-bottom: 20px;
-  border-bottom: 2px solid #dee2e6;
-  padding-bottom: 10px;
+  margin-bottom: 0; 
+  padding-bottom: 0;
+  border-bottom: none;
 }
+
+.inventory-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 15px;
+  padding: 10px 15px;
+  background: #f8f9fa;
+  border-radius: 10px 10px 0 0;
+  box-shadow: 0 2px 5px rgba(0,0,0,0.05);
+}
+
 
 .avatar-tab {
   padding: 8px 16px;
@@ -176,6 +188,7 @@
   transition: all 0.3s;
   font-weight: bold;
   font-family: "Bad Comic", sans-serif;
+  position: relative;
 }
 
 .avatar-tab.active {
@@ -183,8 +196,22 @@
   color: white;
 }
 
+.avatar-tab.active::after {
+  content: "";
+  position: absolute;
+  bottom: -10px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 60%;
+  height: 3px;
+  background: #4dabf7;
+  border-radius: 3px;
+}
+
 .avatar-items-container {
-  position: relative;
+  background: #f8f9fa;
+  border-radius: 0 0 10px 10px;
+  padding: 15px;
   min-height: 300px;
 }
 
@@ -374,6 +401,59 @@
 @keyframes slideIn {
   from { transform: translateX(100%); }
   to { transform: translateX(0); }
+}
+
+.inventory-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 15px;
+  padding-bottom: 10px;
+  border-bottom: 2px solid #e0e0e0;
+}
+
+.coins-display {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: white;
+  padding: 8px 15px;
+  border-radius: 25px;
+  box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+  border: 2px solid #D4AF37;
+}
+
+.coin-icon {
+  width: 24px;
+  height: 24px;
+  filter: drop-shadow(0 1px 2px rgba(0,0,0,0.2));
+}
+
+.coins-count {
+  font-family: 'Bad Comic', sans-serif;
+  font-size: 18px;
+  font-weight: bold;
+  color: #5E3B1E;
+}
+
+.coins-display.update {
+  animation: pulse 0.5s ease;
+}
+
+@keyframes pulse {
+  0% { transform: scale(1); }
+  50% { transform: scale(1.05); }
+  100% { transform: scale(1); }
+}
+
+@keyframes coins-update {
+  0% { transform: scale(1); }
+  50% { transform: scale(1.2); }
+  100% { transform: scale(1); }
+}
+
+.coins-update {
+  animation: coins-update 0.5s ease;
 }
 
 .equip-loader {

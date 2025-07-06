@@ -76,11 +76,24 @@
     </section>
 
     <section class="customization-section">
-      <div class="avatar-tabs">
-        <button class="avatar-tab active" data-tab="hair">Причёски</button>
-        <button class="avatar-tab" data-tab="clothes">Одежда</button>
-        <button class="avatar-tab" data-tab="accessories">Аксессуары</button>
-      </div>
+        <div class="inventory-header">
+          <div class="coins-display">
+            <svg class="coin-icon" viewBox="0 0 64 64">
+              <circle cx="32" cy="32" r="28" fill="#FFD700" stroke="#D4AF37" stroke-width="3"/>
+              <circle cx="32" cy="32" r="20" fill="#FFF9C4" stroke="#D4AF37" stroke-width="2"/>
+              <text x="32" y="38" font-family="Arial" font-size="24" font-weight="bold" 
+                    text-anchor="middle" fill="#C49000">$</text>
+            </svg>
+            <span class="coins-count">0</span>
+          </div>
+          
+          <div class="avatar-tabs">
+            <button class="avatar-tab active" data-tab="hair">Причёски</button>
+            <button class="avatar-tab" data-tab="clothes">Одежда</button>
+            <button class="avatar-tab" data-tab="accessories">Аксессуары</button>
+          </div>
+        </div>
+        
 
       <div class="avatar-items-container">
         <div class="avatar-items active" id="hair-items"></div>

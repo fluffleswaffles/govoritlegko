@@ -154,6 +154,33 @@
   animation: fadeIn 0.3s ease-out;
 }
 
+.avatar-item[data-item-type="face"] {
+  position: relative;
+}
+
+.avatar-item[data-item-type="face"]::after {
+  content: "Текущее";
+  position: absolute;
+  bottom: 5px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: #4dabf7;
+  color: white;
+  padding: 2px 8px;
+  border-radius: 10px;
+  font-size: 12px;
+  opacity: 0;
+  transition: opacity 0.3s;
+}
+
+.avatar-item[data-item-type="face"].equipped::after {
+  opacity: 1;
+}
+
+.avatar-item[data-item-type="face"]:hover::after {
+  opacity: 0.8;
+}
+
 @keyframes fadeIn {
   from { opacity: 0; transform: translateY(10px); }
   to { opacity: 1; transform: translateY(0); }

@@ -53,25 +53,19 @@ const User = sequelize.define('User', {
 });
 
 const Item = sequelize.define('Item', {
-  name: { 
-    type: DataTypes.STRING, 
-    allowNull: false 
+  name: DataTypes.STRING,
+  type: {
+    type: DataTypes.ENUM('hair', 'top', 'bottom', 'accessory', 'face'),
+    allowNull: false
   },
-  type: { 
-    type: DataTypes.STRING, 
-    allowNull: false,
-    validate: {
-      isIn: [['hair', 'top', 'bottom', 'accessory']]
-    }
+  price: {
+    type: DataTypes.INTEGER,
+    defaultValue: 0
   },
-  price: { 
-    type: DataTypes.INTEGER, 
-    allowNull: false,
-    validate: { min: 0 }
-  },
-  imageUrl: { 
-    type: DataTypes.STRING, 
-    allowNull: false 
+  imageUrl: DataTypes.STRING,
+  isDefault: {
+    type: DataTypes.BOOLEAN,
+    defaultValue: false
   }
 });
 
@@ -169,6 +163,18 @@ app.post('/api/auth/register', async (req, res) => {
     }
     res.status(500).json({ message: 'Registration failed' });
   }
+});
+
+User.afterCreate(async (user) => {
+  const defaultItems = await Item.findAll({ where: { isDefault: true } });
+  
+  await Inventory.bulkCreate(
+    defaultItems.map(item => ({
+      UserId: user.id,
+      ItemId: item.id,
+      equipped: item.type === 'face' 
+    }))
+  );
 });
 
 app.post('/api/auth/login', async (req, res) => {
@@ -484,7 +490,6 @@ app.post('/api/avatar/equip', async (req, res) => {
 
     const token = authHeader.split(' ')[1];
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
-    
     const { itemId, itemType } = req.body;
     console.log('Equip request:', { userId: decoded.id, itemId, itemType });
     const item = await Item.findByPk(itemId);
@@ -497,20 +502,26 @@ app.post('/api/avatar/equip', async (req, res) => {
         ItemId: itemId
       }
     });
-    
     if (!inventoryItem) {
       return res.status(400).json({ message: 'Item not in inventory' });
     }
+    // Снимаем экипировку только с предметов того же типа
+    const userItemsOfType = await Item.findAll({
+      include: [{
+        model: User,
+        where: { id: decoded.id },
+        through: { attributes: [] }
+      }],
+      where: { type: itemType }
+    });
+    const itemIdsOfType = userItemsOfType.map(i => i.id);
     await Inventory.update(
       { equipped: false },
-      { 
-        where: { 
-          UserId: decoded.id
-        },
-        include: [{
-          model: Item,
-          where: { type: itemType }
-        }]
+      {
+        where: {
+          UserId: decoded.id,
+          ItemId: itemIdsOfType
+        }
       }
     );
     await inventoryItem.update({ equipped: true });
@@ -520,7 +531,6 @@ app.post('/api/avatar/equip', async (req, res) => {
         through: { where: { equipped: true } }
       }
     });
-    
     res.json({ 
       success: true,
       equippedItems: user.Items.map(item => ({
@@ -530,7 +540,6 @@ app.post('/api/avatar/equip', async (req, res) => {
         imageUrl: item.imageUrl
       }))
     });
-    
   } catch (err) {
     console.error('Equip error:', err);
     res.status(500).json({ 
@@ -539,6 +548,54 @@ app.post('/api/avatar/equip', async (req, res) => {
     });
   }
 });
+
+app.post('/api/avatar/change-face', async (req, res) => {
+  const transaction = await sequelize.transaction();
+  try {
+    const { itemId } = req.body;
+    const token = req.headers.authorization?.split(' ')[1];
+    const decoded = jwt.verify(token, process.env.JWT_SECRET);
+    const faceItem = await Item.findOne({
+      where: { id: itemId, type: 'face' },
+      transaction
+    });
+    
+    if (!faceItem) {
+      await transaction.rollback();
+      return res.status(400).json({ message: 'Это не предмет типа "лицо"' });
+    }
+    const inventoryItem = await Inventory.findOne({
+      where: { UserId: decoded.id, ItemId: itemId },
+      transaction
+    });
+    
+    if (!inventoryItem) {
+      await transaction.rollback();
+      return res.status(400).json({ message: 'У вас нет этого лица' });
+    }
+    await Inventory.update(
+      { equipped: false },
+      {
+        where: {
+          UserId: decoded.id,
+          '$Item.type$': 'face'
+        },
+        include: [{ model: Item }],
+        transaction
+      }
+    );
+    await inventoryItem.update({ equipped: true }, { transaction });
+    
+    await transaction.commit();
+    res.json({ success: true });
+    
+  } catch (error) {
+    await transaction.rollback();
+    res.status(500).json({ message: 'Ошибка смены лица' });
+  }
+});
+
+
 app.post('/api/avatar/save-state', async (req, res) => {
   const transaction = await sequelize.transaction();
   try {

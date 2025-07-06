@@ -6,6 +6,22 @@ document.addEventListener('DOMContentLoaded', async () => {
   initModals();
   setupForms();
   await loadData();
+
+  // В выпадающем списке типа предмета добавим вариант "Лицо"
+  const addTypeSelect = document.querySelector('#add-item-form select[name="type"]');
+  if (addTypeSelect && !addTypeSelect.querySelector('option[value="face"]')) {
+    const faceOption = document.createElement('option');
+    faceOption.value = 'face';
+    faceOption.textContent = 'Лицо';
+    addTypeSelect.appendChild(faceOption);
+  }
+  const editTypeSelect = document.getElementById('edit-item-type');
+  if (editTypeSelect && !editTypeSelect.querySelector('option[value="face"]')) {
+    const faceOption2 = document.createElement('option');
+    faceOption2.value = 'face';
+    faceOption2.textContent = 'Лицо';
+    editTypeSelect.appendChild(faceOption2);
+  }
 });
 
 async function checkAdminAuth() {
@@ -107,6 +123,7 @@ function renderItems() {
     itemElement.innerHTML = `
       <img src="${API_BASE}${item.imageUrl}" alt="${item.name}" class="admin-item-image">
       <h3>${item.name}</h3>
+      <p><strong>ID:</strong> ${item.id}</p>
       <p>Тип: ${item.type}</p>
       <p>Цена: ${item.price} монет</p>
       <p>Используется: ${item.usersCount || 0} пользователями</p>

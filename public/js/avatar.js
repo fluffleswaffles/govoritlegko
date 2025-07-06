@@ -160,16 +160,10 @@ async function loadUserData() {
 
 function updateUI() {
   const activeTab = document.querySelector('.avatar-tab.active');
-  const activeTabId = activeTab?.dataset.tab || 'hair';
-
+  const activeTabId = activeTab?.dataset.tab || 'face';
   renderAvatar();
-  renderInventory();
+  renderInventory(activeTabId);
   renderShopItems();
-  
-  if (activeTabId) {
-    const tab = document.querySelector(`.avatar-tab[data-tab="${activeTabId}"]`);
-    tab?.click();
-  }
 }
 
 function renderAvatar() {
@@ -191,52 +185,115 @@ function renderAvatar() {
   });
 }
 
-function renderInventory() {
-  const tabs = {
-    'hair': document.getElementById('hair-items'),
-    'clothes': document.getElementById('clothes-items'),
-    'accessories': document.getElementById('accessories-items')
-  };
 
-  Object.values(tabs).forEach(tab => tab && (tab.innerHTML = ''));
-
-  const itemsByType = userInventory.reduce((acc, item) => {
-    const type = item.type === 'top' ? 'clothes' : 
-                item.type === 'bottom' ? 'clothes' : 
-                item.type;
-    
-    if (!acc[type]) acc[type] = [];
-    acc[type].push(item);
-    return acc;
-  }, {});
-
-  Object.entries(itemsByType).forEach(([type, items]) => {
-    const tab = tabs[type];
-    if (!tab) return;
-    
-    items.forEach(item => {
-
-      if (!item || !item.id || !item.type) {
-        console.warn('Invalid item:', item);
-        return;
-      }
-      const isEquipped = equippedItems.some(ei => String(ei.id) === String(item.id));
-      const itemElement = document.createElement('div');
-      itemElement.className = `avatar-item ${isEquipped ? 'equipped' : ''}`;
-      itemElement.dataset.itemId = item.id;
-      itemElement.dataset.itemType = item.type;
-      
-      itemElement.innerHTML = `
-        <img src="${API_BASE}${item.imageUrl}" alt="${item.name}" loading="lazy">
-        <span class="item-name">${item.name}</span>
-        ${isEquipped ? '<div class="equipped-badge">✓</div>' : ''}
-      `;
-      
-      tab.appendChild(itemElement);
+function setupTabs() {
+  const tabs = [
+    { name: 'face', label: 'Лица' },
+    { name: 'hair', label: 'Причёски' },
+    { name: 'clothes', label: 'Одежда' },
+    { name: 'accessories', label: 'Аксессуары' }
+  ];
+  
+  const container = document.querySelector('.avatar-tabs');
+  container.innerHTML = '';
+  
+  tabs.forEach(tab => {
+    const button = document.createElement('button');
+    button.className = `avatar-tab ${tab.name === 'face' ? 'active' : ''}`;
+    button.dataset.tab = tab.name;
+    button.textContent = tab.label;
+    button.addEventListener('click', () => {
+      document.querySelectorAll('.avatar-tab').forEach(btn => btn.classList.remove('active'));
+      button.classList.add('active');
+      renderInventory(tab.name);
     });
+    container.appendChild(button);
   });
 }
 
+function getItemIconUrl(item) {
+  // Формируем имя файла иконки по шаблону: {id}-icon.png
+  return `${API_BASE}/assets/avatars/icons/${item.id}-icon.png`;
+}
+
+function renderItemsWithIcons(tab, items) {
+  items.forEach(item => {
+    if (!item.id || !item.name || !item.imageUrl) return;
+    const isEquipped = equippedItems.some(ei => String(ei.id) === String(item.id));
+    const itemElement = document.createElement('div');
+    itemElement.className = `avatar-item ${isEquipped ? 'equipped' : ''}`;
+    itemElement.dataset.itemId = item.id;
+    itemElement.dataset.itemType = item.type;
+    // Используем иконку, если она есть, иначе fallback на imageUrl
+    const iconUrl = getItemIconUrl(item);
+    itemElement.innerHTML = `
+      <img src="${iconUrl}" alt="${item.name}" loading="lazy" onerror="this.onerror=null;this.src='${API_BASE}${item.imageUrl}'">
+      <span class="item-name">${item.name}</span>
+      ${isEquipped ? '<div class="equipped-badge">✓</div>' : ''}
+    `;
+    if (item.type === 'face') {
+      itemElement.addEventListener('click', () => {
+        if (!isEquipped) changeFace(item.id);
+      });
+    } else {
+      itemElement.addEventListener('click', () => {
+        toggleItemEquip(item.id, item.type);
+      });
+    }
+    tab.appendChild(itemElement);
+  });
+}
+
+// В renderInventory заменим рендер предметов на renderItemsWithIcons
+function renderInventory(activeTabName) {
+  const typeToTabMap = {
+    'face': 'face-items',
+    'hair': 'hair-items',
+    'top': 'clothes-items',
+    'bottom': 'clothes-items',
+    'accessory': 'accessories-items'
+  };
+  const tabVisibility = {
+    'face': ['face-items'],
+    'hair': ['hair-items'],
+    'clothes': ['clothes-items'],
+    'accessories': ['accessories-items']
+  };
+  // Скрываем все контейнеры, кроме активного
+  Object.values(tabVisibility).flat().forEach(tabId => {
+    const tab = document.getElementById(tabId);
+    if (tab) {
+      tab.classList.remove('active');
+      tab.innerHTML = '';
+    }
+  });
+  if (activeTabName && tabVisibility[activeTabName]) {
+    tabVisibility[activeTabName].forEach(tabId => {
+      const tab = document.getElementById(tabId);
+      if (tab) tab.classList.add('active');
+    });
+  }
+  // Для вкладки "Одежда" показываем и top, и bottom
+  let itemsByTab = {};
+  if (activeTabName === 'clothes') {
+    itemsByTab['clothes-items'] = userInventory.filter(item => item.type === 'top' || item.type === 'bottom');
+  } else {
+    itemsByTab = userInventory.reduce((acc, item) => {
+      const tabId = typeToTabMap[item.type];
+      if (!tabId) return acc;
+      if (!acc[tabId]) acc[tabId] = [];
+      acc[tabId].push(item);
+      return acc;
+    }, {});
+  }
+  Object.entries(itemsByTab).forEach(([tabId, items]) => {
+    const tab = document.getElementById(tabId);
+    if (!tab) return;
+    renderItemsWithIcons(tab, items);
+  });
+}
+
+// Аналогично для магазина
 function renderShopItems() {
   const shopContainer = document.querySelector('.shop-items-container');
   if (!shopContainer) return;
@@ -258,10 +315,11 @@ function renderShopItems() {
   }
 
   availableItems.forEach(item => {
+    const iconUrl = getItemIconUrl(item);
     const itemElement = document.createElement('div');
     itemElement.className = 'shop-item';
     itemElement.innerHTML = `
-      <img src="${API_BASE}${item.imageUrl}" alt="${item.name}">
+      <img src="${iconUrl}" alt="${item.name}" onerror="this.onerror=null;this.src='${API_BASE}${item.imageUrl}'">
       <div class="shop-item-info">
         <h4>${item.name}</h4>
         <p>${item.price} монет</p>
@@ -318,7 +376,10 @@ async function toggleItemEquip(itemId, itemType) {
     }));
 
     renderAvatar();
-    renderInventory();
+    // Получаем активную вкладку и передаем ее в renderInventory
+    const activeTab = document.querySelector('.avatar-tab.active');
+    const activeTabId = activeTab?.dataset.tab || 'face';
+    renderInventory(activeTabId);
     showNotification('Предмет успешно экипирован!');
 
   } catch (error) {
@@ -383,6 +444,10 @@ async function saveAvatarState() {
       equippedItems = data.state;
       renderAvatar();
     }
+    // Обновляем инвентарь с учетом активной вкладки
+    const activeTab = document.querySelector('.avatar-tab.active');
+    const activeTabId = activeTab?.dataset.tab || 'face';
+    renderInventory(activeTabId);
 
     showNotification('Аватар успешно сохранён!', 'success');
 
@@ -464,43 +529,6 @@ async function applyEquippedItems() {
     }
   } catch (error) {
     console.error('Apply equipped items error:', error);
-  }
-}
-
-function setupTabs() {
-  const tabs = document.querySelectorAll('.avatar-tab');
-  const itemsContainers = document.querySelectorAll('.avatar-items');
-
-  if (!tabs.length || !itemsContainers.length) {
-    console.error('Tabs or containers not found!');
-    return;
-  }
-
-  tabs.forEach(tab => {
-    tab.addEventListener('click', () => {
-      tabs.forEach(t => t.classList.remove('active'));
-
-      tab.classList.add('active');
-      const tabId = tab.dataset.tab;
-      if (!tabId) {
-        console.error('Data-tab attribute missing!');
-        return;
-      }
-      itemsContainers.forEach(container => {
-        container.style.display = 'none';
-        container.classList.remove('active');
-      });
-      const activeContainer = document.getElementById(`${tabId}-items`);
-      if (activeContainer) {
-        activeContainer.style.display = 'grid';
-        activeContainer.classList.add('active');
-      } else {
-        console.error(`Container #${tabId}-items not found!`);
-      }
-    });
-  });
-  if (tabs[0]) {
-    tabs[0].click();
   }
 }
 

@@ -292,6 +292,7 @@ async function checkAuth() {
       
       if (response.ok) {
         localStorage.setItem('token', data.token);
+        
         updateAuthUI(data.username);
         window.location.reload();
       } else {

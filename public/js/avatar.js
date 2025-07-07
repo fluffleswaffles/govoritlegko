@@ -212,7 +212,6 @@ function setupTabs() {
 }
 
 function getItemIconUrl(item) {
-  // Формируем имя файла иконки по шаблону: {id}-icon.png
   return `${API_BASE}/assets/avatars/icons/${item.id}-icon.png`;
 }
 
@@ -224,7 +223,7 @@ function renderItemsWithIcons(tab, items) {
     itemElement.className = `avatar-item ${isEquipped ? 'equipped' : ''}`;
     itemElement.dataset.itemId = item.id;
     itemElement.dataset.itemType = item.type;
-    // Используем иконку, если она есть, иначе fallback на imageUrl
+
     const iconUrl = getItemIconUrl(item);
     itemElement.innerHTML = `
       <img src="${iconUrl}" alt="${item.name}" loading="lazy" onerror="this.onerror=null;this.src='${API_BASE}${item.imageUrl}'">
@@ -244,7 +243,6 @@ function renderItemsWithIcons(tab, items) {
   });
 }
 
-// В renderInventory заменим рендер предметов на renderItemsWithIcons
 function renderInventory(activeTabName) {
   const typeToTabMap = {
     'face': 'face-items',
@@ -259,7 +257,7 @@ function renderInventory(activeTabName) {
     'clothes': ['clothes-items'],
     'accessories': ['accessories-items']
   };
-  // Скрываем все контейнеры, кроме активного
+
   Object.values(tabVisibility).flat().forEach(tabId => {
     const tab = document.getElementById(tabId);
     if (tab) {
@@ -273,7 +271,7 @@ function renderInventory(activeTabName) {
       if (tab) tab.classList.add('active');
     });
   }
-  // Для вкладки "Одежда" показываем и top, и bottom
+
   let itemsByTab = {};
   if (activeTabName === 'clothes') {
     itemsByTab['clothes-items'] = userInventory.filter(item => item.type === 'top' || item.type === 'bottom');
@@ -293,7 +291,6 @@ function renderInventory(activeTabName) {
   });
 }
 
-// Аналогично для магазина
 function renderShopItems() {
   const shopContainer = document.querySelector('.shop-items-container');
   if (!shopContainer) return;
@@ -376,7 +373,6 @@ async function toggleItemEquip(itemId, itemType) {
     }));
 
     renderAvatar();
-    // Получаем активную вкладку и передаем ее в renderInventory
     const activeTab = document.querySelector('.avatar-tab.active');
     const activeTabId = activeTab?.dataset.tab || 'face';
     renderInventory(activeTabId);
@@ -444,7 +440,6 @@ async function saveAvatarState() {
       equippedItems = data.state;
       renderAvatar();
     }
-    // Обновляем инвентарь с учетом активной вкладки
     const activeTab = document.querySelector('.avatar-tab.active');
     const activeTabId = activeTab?.dataset.tab || 'face';
     renderInventory(activeTabId);

@@ -42,6 +42,23 @@
       <h2>Управление пользователями</h2>
       <div id="users-list"></div>
     </div>
+
+    <div class="admin-section" id="admin-games-section">
+      <h2>Управление играми</h2>
+      <form id="add-game-form" enctype="multipart/form-data">
+        <input type="text" name="id" placeholder="ID игры (латиницей)" required>
+        <input type="text" name="name" placeholder="Название игры" required>
+        <input type="text" name="description" placeholder="Описание">
+        <label>Иконка (800x480 PNG/JPEG):
+          <input type="file" name="icon" required accept="image/png,image/jpeg">
+        </label>
+        <label>Загрузите файлы (game.html, game.js, game.wasm):
+          <input type="file" name="files" multiple required accept=".html,.js,.wasm">
+        </label>
+        <button type="submit">Добавить игру</button>
+      </form>
+      <div id="admin-games-list"></div>
+    </div>
   </div>
 
   <div id="editModal" class="modal">
@@ -70,5 +87,6 @@
   </div>
 
   <script src="js/admin.js"></script>
+  <script src="js/admin-games.js"></script>
 </body>
 </html>

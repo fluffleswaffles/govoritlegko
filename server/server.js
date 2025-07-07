@@ -10,6 +10,7 @@ const multer = require('multer');
 const path = require('path');
 const express = require('express');
 const fs = require('fs').promises;
+const gamesRouter = require('./routes/games');
 
 const app = express();
 
@@ -505,7 +506,6 @@ app.post('/api/avatar/equip', async (req, res) => {
     if (!inventoryItem) {
       return res.status(400).json({ message: 'Item not in inventory' });
     }
-    // Снимаем экипировку только с предметов того же типа
     const userItemsOfType = await Item.findAll({
       include: [{
         model: User,
@@ -693,6 +693,8 @@ app.get('/api/avatar/load-state', async (req, res) => {
     });
   }
 });
+
+app.use('/api/games', gamesRouter);
 
 async function start() {
   try {

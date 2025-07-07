@@ -6,8 +6,8 @@ document.addEventListener('DOMContentLoaded', async () => {
   initModals();
   setupForms();
   await loadData();
+  await loadGamesAdmin();
 
-  // В выпадающем списке типа предмета добавим вариант "Лицо"
   const addTypeSelect = document.querySelector('#add-item-form select[name="type"]');
   if (addTypeSelect && !addTypeSelect.querySelector('option[value="face"]')) {
     const faceOption = document.createElement('option');
@@ -53,30 +53,33 @@ function initModals() {
 }
 
 function setupForms() {
-  document.getElementById('add-item-form').addEventListener('submit', async (e) => {
-    e.preventDefault();
-    const form = e.target;
-    const formData = new FormData(form);
-    
-    try {
-      const response = await fetch(`${API_BASE}/api/admin/items`, {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${localStorage.getItem('token')}`
-        },
-        body: formData
-      });
-      
-      if (!response.ok) throw new Error('Ошибка добавления');
-      
-      form.reset();
-      await loadItems();
-      alert('Предмет успешно добавлен!');
-    } catch (error) {
-      console.error('Ошибка:', error);
-      alert(error.message);
-    }
-  });
+  const gameForm = document.getElementById('add-game-form');
+  if (gameForm) {
+    gameForm.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      console.log('[admin.js] submit add-game-form');
+      const formData = new FormData(gameForm);
+      for (let [key, value] of formData.entries()) {
+        console.log(`[admin.js] formData: ${key} =`, value);
+      }
+      try {
+        const resp = await fetch(`${API_BASE}/api/games`, {
+          method: 'POST',
+          headers: { 'Authorization': `Bearer ${localStorage.getItem('token')}` },
+          body: formData
+        });
+        console.log('[admin.js] fetch response', resp.status);
+        gameForm.reset();
+        await loadGamesAdmin();
+        alert('Игра добавлена!');
+      } catch (err) {
+        console.error('[admin.js] Ошибка загрузки игры', err);
+        alert('Ошибка загрузки игры');
+      }
+      return false;
+    });
+  }
+
   document.getElementById('edit-item-form').addEventListener('submit', async (e) => {
     e.preventDefault();
     const id = document.getElementById('edit-item-id').value;
@@ -223,6 +226,41 @@ async function toggleAdmin(userId, isAdmin) {
       'Authorization': `Bearer ${localStorage.getItem('token')}`
     },
     body: JSON.stringify({ isAdmin })
+  });
+}
+
+async function loadGamesAdmin() {
+  try {
+    const res = await fetch(`${API_BASE}/api/games`);
+    const games = await res.json();
+    renderGamesAdmin(games);
+  } catch (err) {
+    console.error('[admin.js] Ошибка загрузки игр', err);
+  }
+}
+
+function renderGamesAdmin(games) {
+  const container = document.getElementById('admin-games-list');
+  if (!container) return;
+  container.innerHTML = games.map(game => `
+    <div class="admin-game-card">
+      <img src="${game.iconUrl || '/public/assets/icons/placeholder.png'}" alt="icon" class="admin-game-icon" style="width:160px;height:96px;object-fit:cover;">
+      <h3>${game.name}</h3>
+      <p>${game.description || ''}</p>
+      <a href="/games/${game.id}/game.html" target="_blank">Открыть</a>
+      <button class="edit-game-btn" data-id="${game.id}">Редактировать</button>
+      <button class="delete-game-btn" data-id="${game.id}">Удалить</button>
+    </div>
+  `).join('');
+  container.querySelectorAll('.delete-game-btn').forEach(btn => {
+    btn.onclick = async (e) => {
+      if (!confirm('Удалить игру?')) return;
+      await fetch(`${API_BASE}/api/games/${btn.dataset.id}`, {
+        method: 'DELETE',
+        headers: { 'Authorization': `Bearer ${localStorage.getItem('token')}` }
+      });
+      await loadGamesAdmin();
+    };
   });
 }
 

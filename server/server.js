@@ -11,8 +11,7 @@ const path = require('path');
 const express = require('express');
 const fs = require('fs').promises;
 const gamesRouter = require('./routes/games');
-
-const app = express();
+const nodemailer = require('nodemailer');
 
 const sequelize = new Sequelize(
   process.env.DB_NAME,
@@ -87,14 +86,62 @@ const AvatarStorage = sequelize.define('AvatarStorage', {
   timestamps: true
 });
 
+const News = sequelize.define('News', {
+  title: {
+    type: DataTypes.STRING,
+    allowNull: false
+  },
+  text: {
+    type: DataTypes.TEXT,
+    allowNull: false
+  },
+  imageUrl: {
+    type: DataTypes.STRING,
+    allowNull: false
+  }
+}, {
+  timestamps: true
+});
+
+const Friend = require('./models/friend')(sequelize);
+const Achievement = require('./models/achievement')(sequelize);
+const Message = require('./models/message')(sequelize);
+const Avatar = require('./models/avatar')(sequelize, DataTypes);
+const FriendRequest = require('./models/friendrequest')(sequelize, DataTypes);
+
+User.hasOne(Avatar, { as: 'avatar', foreignKey: 'UserId' });
+Avatar.belongsTo(User, { foreignKey: 'UserId' });
+
 User.hasOne(AvatarStorage);
 AvatarStorage.belongsTo(User);
 
 User.belongsToMany(Item, { through: Inventory });
 Item.belongsToMany(User, { through: Inventory });
 
+User.hasMany(Friend, { foreignKey: 'userId', as: 'friends' });
+Friend.belongsTo(User, { foreignKey: 'friendId', as: 'friendUser' });
+User.hasMany(Achievement, { foreignKey: 'userId', as: 'achievements' });
+User.hasMany(Message, { foreignKey: 'userId', as: 'messages' });
+
+User.hasMany(FriendRequest, { as: 'sentRequests', foreignKey: 'userId' });
+User.hasMany(FriendRequest, { as: 'receivedRequests', foreignKey: 'friendId' });
+FriendRequest.belongsTo(User, { as: 'sender', foreignKey: 'userId' });
+FriendRequest.belongsTo(User, { as: 'receiver', foreignKey: 'friendId' });
+
+const app = express();
+
 app.use(cors({
-  origin: ['http://localhost:3000', 'http://127.0.0.1:3000'],
+  origin: [
+    'http://localhost:3000',
+    'http://127.0.0.1:3000',
+    'http://localhost:5500',
+    'http://127.0.0.1:5500',
+    'http://localhost:8080',
+    'http://127.0.0.1:8080',
+    'file://',
+    'http://localhost',
+    'http://127.0.0.1'
+  ],
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization'],
   credentials: true
@@ -146,6 +193,30 @@ const upload = multer({
     }
   },
   limits: { fileSize: 5 * 1024 * 1024 } 
+});
+
+const newsStorage = multer.diskStorage({
+  destination: async (req, file, cb) => {
+    const uploadPath = path.join(__dirname, 'public', 'assets', 'news');
+    await fs.mkdir(uploadPath, { recursive: true });
+    cb(null, uploadPath);
+  },
+  filename: (req, file, cb) => {
+    const ext = path.extname(file.originalname);
+    const filename = `news_${Date.now()}${ext}`;
+    cb(null, filename);
+  }
+});
+const uploadNews = multer({
+  storage: newsStorage,
+  fileFilter: (req, file, cb) => {
+    if (file.mimetype.startsWith('image/')) {
+      cb(null, true);
+    } else {
+      cb(new Error('Only image files are allowed'), false);
+    }
+  },
+  limits: { fileSize: 5 * 1024 * 1024 }
 });
 
 app.post('/api/auth/register', async (req, res) => {
@@ -694,13 +765,66 @@ app.get('/api/avatar/load-state', async (req, res) => {
   }
 });
 
+app.get('/api/news', async (req, res) => {
+  try {
+    const news = await News.findAll({ order: [['createdAt', 'DESC']] });
+    res.json(news);
+  } catch (err) {
+    res.status(500).json({ message: 'Failed to fetch news' });
+  }
+});
+
+app.post('/api/admin/news', requireAdmin, uploadNews.single('image'), async (req, res) => {
+  try {
+    if (!req.file) return res.status(400).json({ message: 'Image required' });
+    const { title, text } = req.body;
+    if (!title || !text) return res.status(400).json({ message: 'Title and text required' });
+    const imageUrl = `/assets/news/${req.file.filename}`;
+    const news = await News.create({ title, text, imageUrl });
+    res.status(201).json(news);
+  } catch (err) {
+    res.status(500).json({ message: 'Failed to create news' });
+  }
+});
+
+app.put('/api/admin/news/:id', requireAdmin, uploadNews.single('image'), async (req, res) => {
+  try {
+    const news = await News.findByPk(req.params.id);
+    if (!news) return res.status(404).json({ message: 'News not found' });
+    const { title, text } = req.body;
+    let imageUrl = news.imageUrl;
+    if (req.file) {
+      imageUrl = `/assets/news/${req.file.filename}`;
+    }
+    await news.update({ title, text, imageUrl });
+    res.json(news);
+  } catch (err) {
+    res.status(500).json({ message: 'Failed to update news' });
+  }
+});
+
+app.delete('/api/admin/news/:id', requireAdmin, async (req, res) => {
+  try {
+    const news = await News.findByPk(req.params.id);
+    if (!news) return res.status(404).json({ message: 'News not found' });
+    await news.destroy();
+    res.json({ success: true });
+  } catch (err) {
+    res.status(500).json({ message: 'Failed to delete news' });
+  }
+});
+
 app.use('/api/games', gamesRouter);
+
+app.use((err, req, res, next) => {
+  res.status(err.status || 500);
+  res.set('Content-Type', 'application/json');
+  res.json({ message: err.message || 'Internal server error' });
+});
 
 async function start() {
   try {
-    await sequelize.authenticate();
-    await sequelize.sync({ alter: true });
-    
+    await sequelize.sync();
     const PORT = process.env.PORT || 5000;
     app.listen(PORT, () => {
       console.log(`Server running on http://localhost:${PORT}`);
@@ -712,3 +836,255 @@ async function start() {
 }
 
 start();
+
+app.get('/api/profile', async (req, res) => {
+  try {
+    const token = req.headers.authorization?.split(' ')[1];
+    if (!token) return res.status(401).json({ error: 'Нет токена' });
+    const decoded = jwt.verify(token, process.env.JWT_SECRET || 'dev_secret');
+    const user = await User.findByPk(decoded.id, {
+      attributes: ['id', 'username', 'email'],
+      include: [
+        { model: Avatar, as: 'avatar' },
+        { model: Friend, as: 'friends', include: [{ model: User, as: 'friendUser', attributes: ['id', 'username'] }] },
+        { model: Achievement, as: 'achievements', attributes: ['id', 'title', 'description', 'reward'] },
+        { model: Message, as: 'messages', attributes: ['id', 'text', 'reward', 'isRead', 'createdAt'] }
+      ]
+    });
+    if (!user) return res.status(404).json({ error: 'Пользователь не найден' });
+    let avatarUrl = null;
+    if (user.avatar && user.avatar.data) {
+      if (user.avatar.data.url) {
+        avatarUrl = user.avatar.data.url;
+      } else if (user.avatar.data.base) {
+        avatarUrl = `/assets/avatars/base/${user.avatar.data.base}.png`;
+      }
+    }
+    res.json({
+      username: user.username,
+      email: user.email,
+      avatarUrl,
+      avatarData: user.avatar ? user.avatar.data : null,
+      friends: user.friends.map(f => ({ id: f.friendUser?.id, username: f.friendUser?.username })).filter(f => f.id),
+      achievements: user.achievements,
+      messages: user.messages
+    });
+  } catch (err) {
+    res.status(401).json({ error: 'Ошибка авторизации' });
+  }
+});
+
+const avatarImageStorage = multer.diskStorage({
+  destination: async (req, file, cb) => {
+    const uploadPath = path.join(__dirname, 'public', 'assets', 'avatars', 'user');
+    await fs.mkdir(uploadPath, { recursive: true });
+    cb(null, uploadPath);
+  },
+  filename: async (req, file, cb) => {
+    try {
+      const token = req.headers.authorization?.split(' ')[1];
+      const decoded = jwt.verify(token, process.env.JWT_SECRET || 'dev_secret');
+      const userId = decoded.id;
+      cb(null, `avatar_${userId}.png`);
+    } catch (e) {
+      cb(e, null);
+    }
+  }
+});
+const uploadAvatarImage = multer({
+  storage: avatarImageStorage,
+  fileFilter: (req, file, cb) => {
+    if (file.mimetype === 'image/png') cb(null, true);
+    else cb(new Error('Only PNG allowed'), false);
+  },
+  limits: { fileSize: 2 * 1024 * 1024 }
+});
+
+app.post('/api/avatar/upload-image', uploadAvatarImage.single('avatar'), async (req, res) => {
+  try {
+    const token = req.headers.authorization?.split(' ')[1];
+    if (!token) return res.status(401).json({ error: 'Нет токена' });
+    const decoded = jwt.verify(token, process.env.JWT_SECRET || 'dev_secret');
+    if (!req.file) return res.status(400).json({ error: 'Нет файла' });
+    const user = await User.findByPk(decoded.id, { include: [{ model: Avatar, as: 'avatar' }] });
+    if (!user) return res.status(404).json({ error: 'Пользователь не найден' });
+    const url = `/assets/avatars/user/${req.file.filename}`;
+    if (user.avatar) {
+      user.avatar.data = { ...user.avatar.data, url };
+      await user.avatar.save();
+    } else {
+      await Avatar.create({ UserId: user.id, data: { url } });
+    }
+    res.json({ success: true, url });
+  } catch (err) {
+    res.status(500).json({ error: 'Ошибка загрузки аватара' });
+  }
+});
+
+app.post('/api/friends/add', async (req, res) => {
+  try {
+    const token = req.headers.authorization?.split(' ')[1];
+    if (!token) return res.status(401).json({ error: 'Нет токена' });
+    const decoded = jwt.verify(token, process.env.JWT_SECRET || 'dev_secret');
+    const userId = decoded.id;
+    const { friendId } = req.body;
+    if (!friendId || friendId === userId) return res.status(400).json({ error: 'Некорректный ID друга' });
+    const friendUser = await User.findByPk(friendId);
+    if (!friendUser) return res.status(404).json({ error: 'Пользователь не найден' });
+
+    const exists = await FriendRequest.findOne({ where: { userId, friendId, status: 'pending' } });
+    if (exists) return res.status(400).json({ error: 'Заявка уже отправлена' });
+
+    const alreadyFriends = await Friend.findOne({ where: { userId, friendId } });
+    if (alreadyFriends) return res.status(400).json({ error: 'Уже в друзьях' });
+    await FriendRequest.create({ userId, friendId, status: 'pending' });
+
+    res.json({ success: true });
+  } catch (err) {
+    res.status(500).json({ error: 'Ошибка отправки заявки' });
+  }
+});
+
+app.post('/api/friends/accept', async (req, res) => {
+  try {
+    const token = req.headers.authorization?.split(' ')[1];
+    if (!token) return res.status(401).json({ error: 'Нет токена' });
+    const decoded = jwt.verify(token, process.env.JWT_SECRET || 'dev_secret');
+    const currentUserId = decoded.id;
+    const { requestId } = req.body;
+    if (!requestId) return res.status(400).json({ error: 'Нет requestId' });
+    const request = await FriendRequest.findOne({ where: { id: requestId, status: 'pending' } });
+    if (!request) return res.status(404).json({ error: 'Заявка не найдена' });
+    if (request.friendId !== currentUserId) return res.status(403).json({ error: 'Нет доступа' });
+    const alreadyFriends = await Friend.findOne({ where: { userId: request.userId, friendId: currentUserId } });
+    if (alreadyFriends) {
+      await request.destroy();
+      return res.json({ success: true, message: 'Уже в друзьях' });
+    }
+    await Friend.create({ userId: request.userId, friendId: currentUserId });
+    await Friend.create({ userId: currentUserId, friendId: request.userId });
+    await request.destroy();
+    res.json({ success: true });
+  } catch (err) {
+    res.status(500).json({ error: 'Ошибка принятия заявки' });
+  }
+});
+
+app.post('/api/friends/reject', async (req, res) => {
+  try {
+    const token = req.headers.authorization?.split(' ')[1];
+    if (!token) return res.status(401).json({ error: 'Нет токена' });
+    const decoded = jwt.verify(token, process.env.JWT_SECRET || 'dev_secret');
+    const currentUserId = decoded.id;
+    const { requestId } = req.body;
+    if (!requestId) return res.status(400).json({ error: 'Нет requestId' });
+
+    const request = await FriendRequest.findOne({ where: { id: requestId, status: 'pending' } });
+    if (!request) return res.status(404).json({ error: 'Заявка не найдена' });
+    if (request.friendId !== currentUserId) return res.status(403).json({ error: 'Нет доступа' });
+    await request.destroy();
+    res.json({ success: true });
+  } catch (err) {
+    res.status(500).json({ error: 'Ошибка отклонения заявки' });
+  }
+});
+
+app.get('/api/friends/requests', async (req, res) => {
+  try {
+    const token = req.headers.authorization?.split(' ')[1];
+    if (!token) return res.status(401).json({ error: 'Нет токена' });
+    const decoded = jwt.verify(token, process.env.JWT_SECRET || 'dev_secret');
+    const userId = decoded.id;
+    const incoming = await FriendRequest.findAll({
+      where: { friendId: userId, status: 'pending' },
+      include: [{ model: User, as: 'sender', attributes: ['id', 'username'] }],
+      order: [['createdAt', 'DESC']]
+    });
+    const outgoing = await FriendRequest.findAll({
+      where: { userId, status: 'pending' },
+      include: [{ model: User, as: 'receiver', attributes: ['id', 'username'] }],
+      order: [['createdAt', 'DESC']]
+    });
+    res.json({
+      incoming: incoming.map(r => ({
+        id: r.id,
+        userId: r.userId,
+        fromUsername: r.sender?.username,
+        createdAt: r.createdAt
+      })),
+      outgoing: outgoing.map(r => ({
+        id: r.id,
+        friendId: r.friendId,
+        toUsername: r.receiver?.username,
+        createdAt: r.createdAt
+      }))
+    });
+  } catch (err) {
+    res.status(500).json({ error: 'Ошибка получения заявок' });
+  }
+});
+
+app.get('/api/profile/:id', async (req, res) => {
+  try {
+    let isFriend = false;
+    let currentUserId = null;
+    const authHeader = req.headers.authorization;
+    if (authHeader && authHeader.startsWith('Bearer ')) {
+      try {
+        const token = authHeader.split(' ')[1];
+        const decoded = jwt.verify(token, process.env.JWT_SECRET || 'dev_secret');
+        currentUserId = decoded.id;
+      } catch {}
+    }
+    const user = await User.findByPk(req.params.id, {
+      attributes: ['id', 'username', 'email'],
+      include: [
+        { model: Avatar, as: 'avatar' },
+        { model: Friend, as: 'friends', include: [{ model: User, as: 'friendUser', attributes: ['id', 'username'] }] },
+        { model: Achievement, as: 'achievements', attributes: ['id', 'title', 'description', 'reward'] }
+      ]
+    });
+    if (!user) return res.status(404).json({ error: 'Пользователь не найден' });
+    let avatarUrl = null;
+    if (user.avatar && user.avatar.data) {
+      if (user.avatar.data.url) {
+        avatarUrl = user.avatar.data.url;
+      } else if (user.avatar.data.base) {
+        avatarUrl = `/assets/avatars/base/${user.avatar.data.base}.png`;
+      }
+    }
+    if (currentUserId && currentUserId != req.params.id) {
+      const friend = await Friend.findOne({ where: { userId: currentUserId, friendId: req.params.id } });
+      isFriend = !!friend;
+    }
+    res.json({
+      id: user.id,
+      username: user.username,
+      email: user.email,
+      avatarUrl,
+      avatarData: user.avatar ? user.avatar.data : null,
+      friends: user.friends.map(f => ({ id: f.friendUser?.id, username: f.friendUser?.username })).filter(f => f.id),
+      achievements: user.achievements,
+      isFriend
+    });
+  } catch (err) {
+    res.status(500).json({ error: 'Ошибка получения профиля' });
+  }
+});
+
+app.post('/api/friends/remove', async (req, res) => {
+  try {
+    const token = req.headers.authorization?.split(' ')[1];
+    if (!token) return res.status(401).json({ error: 'Нет токена' });
+    const decoded = jwt.verify(token, process.env.JWT_SECRET || 'dev_secret');
+    const userId = decoded.id;
+    const { friendId } = req.body;
+    if (!friendId || friendId == userId) return res.status(400).json({ error: 'Некорректный ID друга' });
+    const deleted1 = await Friend.destroy({ where: { userId, friendId } });
+    const deleted2 = await Friend.destroy({ where: { userId: friendId, friendId: userId } });
+    if (deleted1 + deleted2 === 0) return res.status(404).json({ error: 'Дружба не найдена' });
+    res.json({ success: true });
+  } catch (err) {
+    res.status(500).json({ error: 'Ошибка удаления друга' });
+  }
+});

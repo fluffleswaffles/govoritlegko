@@ -426,15 +426,9 @@ async function saveAvatarState() {
         'Content-Type': 'application/json'
       }
     });
-
     const data = await response.json();
-    console.log('Save response:', data);
-
-    if (!response.ok) {
+    if (!response.ok || !data || !data.success) {
       throw new Error(data.message || `HTTP error! status: ${response.status}`);
-    }
-    if (!data || !data.success) {
-      throw new Error('Неверный формат ответа сервера');
     }
     if (data.state) {
       equippedItems = data.state;
@@ -443,9 +437,9 @@ async function saveAvatarState() {
     const activeTab = document.querySelector('.avatar-tab.active');
     const activeTabId = activeTab?.dataset.tab || 'face';
     renderInventory(activeTabId);
+    await saveAvatarImageToServer();
 
     showNotification('Аватар успешно сохранён!', 'success');
-
   } catch (error) {
     console.error('Save state error:', error);
     showNotification(`Ошибка сохранения: ${error.message}`, 'error');
@@ -454,77 +448,55 @@ async function saveAvatarState() {
     loader.remove();
   }
 }
-async function checkActualSavedState() {
-  try {
-    const response = await fetch(`${API_BASE}/api/avatar/load-state`, {
-      headers: {
-        'Authorization': `Bearer ${localStorage.getItem('token')}`
-      }
-    });
-    
-    const data = await response.json();
-    if (data.equippedItems) {
-      console.log('Фактическое сохранённое состояние:', data.equippedItems);
+
+async function saveAvatarImageToServer() {
+  const size = 256;
+  const canvas = document.createElement('canvas');
+  canvas.width = size;
+  canvas.height = size;
+  const ctx = canvas.getContext('2d');
+  const layers = [
+    { type: 'base', path: '/assets/avatars/base/base.png' },
+    ...equippedItems.map(item => ({ type: item.type, path: item.imageUrl }))
+  ];
+
+  for (const layer of layers) {
+    if (!layer.path) continue;
+    try {
+      await drawImageOnCanvas(ctx, API_BASE + layer.path, size, size);
+    } catch (e) {
+      console.warn('Не удалось загрузить слой аватара:', layer.path);
     }
-  } catch (error) {
-    console.error('Check state error:', error);
   }
+  const blob = await new Promise(resolve => canvas.toBlob(resolve, 'image/png'));
+  if (!blob) throw new Error('Не удалось создать PNG');
+  const formData = new FormData();
+  formData.append('avatar', blob, 'avatar.png');
+  const uploadRes = await fetch(`${API_BASE}/api/avatar/upload-image`, {
+    method: 'POST',
+    headers: { 'Authorization': `Bearer ${localStorage.getItem('token')}` },
+    body: formData
+  });
+  const uploadData = await uploadRes.json();
+  if (!uploadRes.ok || !uploadData.success) {
+    throw new Error(uploadData.error || 'Ошибка загрузки PNG-аватара');
+  }
+  console.log('PNG-аватар успешно загружен:', uploadData.url);
+  const avatarUrl = uploadData.url + '?t=' + Date.now();
+  window.dispatchEvent(new CustomEvent('avatar-updated', { detail: { url: avatarUrl } }));
 }
 
-async function loadAvatarState() {
-  try {
-    const response = await fetch(`${API_BASE}/api/avatar/load-state`, {
-      headers: {
-        'Authorization': `Bearer ${localStorage.getItem('token')}`
-      }
-    });
-
-    const data = await response.json();
-
-    if (!response.ok) {
-      throw new Error(data.message || 'Ошибка загрузки');
-    }
-    equippedItems = data.equippedItems;
-    await updateInventory();
-    await applyEquippedItems();
-    
-    renderAvatar();
-    renderInventory();
-
-    console.log('Avatar state loaded:', data);
-
-  } catch (error) {
-    console.error('Load state error:', error);
-    equippedItems = [];
-    showNotification('Не удалось загрузить состояние', 'error');
-  }
-}
-
-async function applyEquippedItems() {
-  try {
-    await fetch(`${API_BASE}/api/avatar/unequip-all`, {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${localStorage.getItem('token')}`,
-        'Content-Type': 'application/json'
-      }
-    });
-    for (const item of equippedItems) {
-      await fetch(`${API_BASE}/api/avatar/equip`, {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${localStorage.getItem('token')}`,
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({
-          itemId: item.id,
-          itemType: item.type
-        })
-      });
-    }
-  } catch (error) {
-    console.error('Apply equipped items error:', error);
-  }
+async function drawImageOnCanvas(ctx, url, w, h) {
+  return new Promise((resolve, reject) => {
+    const img = new window.Image();
+    img.crossOrigin = 'anonymous';
+    img.onload = () => {
+      ctx.drawImage(img, 0, 0, w, h);
+      resolve();
+    };
+    img.onerror = reject;
+    img.src = url;
+  });
 }
 
 function setupEventListeners() {

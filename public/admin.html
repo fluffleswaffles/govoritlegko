@@ -59,6 +59,35 @@
       </form>
       <div id="admin-games-list"></div>
     </div>
+
+    <div class="admin-section">
+      <h2>Добавить новость</h2>
+      <form id="add-news-form" enctype="multipart/form-data">
+        <input type="text" name="title" placeholder="Заголовок" required>
+        <textarea name="text" placeholder="Текст (HTML поддерживается)" required style="min-height:80px;"></textarea>
+        <label>Иконка (800x480 PNG/JPEG):
+          <input type="file" name="image" required accept="image/png,image/jpeg">
+        </label>
+        <button type="submit">Добавить новость</button>
+      </form>
+    </div>
+    <div class="admin-section">
+      <h2>Новости</h2>
+      <div id="admin-news-list"></div>
+    </div>
+
+    <div class="admin-section">
+      <h2>Отправить сообщение с наградой</h2>
+      <form id="send-reward-form">
+        <input type="number" id="rewardUserId" placeholder="ID пользователя" min="1" style="width:90px;">
+        <label style="margin-left:8px;"><input type="checkbox" id="rewardAllUsers"> Всем пользователям</label>
+        <input type="text" id="rewardText" placeholder="Текст сообщения" required style="width:200px;">
+        <input type="number" id="rewardCoins" placeholder="Монеты" min="0" required style="width:90px;">
+        <button type="submit">Отправить</button>
+        <span id="rewardStatus" style="margin-left:10px;font-size:0.9em;"></span>
+      </form>
+      <div id="rewardUserHint" style="font-size:0.9em;color:#888;margin-top:2px;">Укажите ID пользователя или выберите "Всем пользователям"</div>
+    </div>
   </div>
 
   <div id="editModal" class="modal">
@@ -86,7 +115,8 @@
     </div>
   </div>
 
-  <script src="js/admin.js"></script>
-  <script src="js/admin-games.js"></script>
+  <script src="js/admin.js" defer></script>
+  <script src="js/admin-games.js" defer></script>
+  <script src="js/admin-news.js" defer></script>
 </body>
 </html>

@@ -1,4 +1,6 @@
-const API_BASE = 'http://localhost:5000';
+console.log('[admin.js] script loaded');
+try {
+window.API_BASE = 'http://localhost:5000';
 let items = [];
 
 document.addEventListener('DOMContentLoaded', async () => {
@@ -97,6 +99,43 @@ function setupForms() {
       console.error('Ошибка обновления:', error);
     }
   });
+
+  const rewardForm = document.getElementById('send-reward-form');
+  if (rewardForm) {
+    const userIdInput = document.getElementById('rewardUserId');
+    const allUsersCheckbox = document.getElementById('rewardAllUsers');
+    allUsersCheckbox.addEventListener('change', () => {
+      userIdInput.disabled = allUsersCheckbox.checked;
+      if (allUsersCheckbox.checked) userIdInput.value = '';
+    });
+    rewardForm.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const allUsers = allUsersCheckbox.checked;
+      const userId = userIdInput.value;
+      const text = document.getElementById('rewardText').value;
+      const coins = Number(document.getElementById('rewardCoins').value);
+      const status = document.getElementById('rewardStatus');
+      status.textContent = '...';
+      try {
+        const resp = await fetch(`${API_BASE}/api/admin/send-reward`, {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${localStorage.getItem('token')}`,
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({ userId: allUsers ? undefined : Number(userId), text, coins, allUsers })
+        });
+        const data = await resp.json();
+        if (resp.ok && data.success) {
+          status.textContent = 'Отправлено!';
+        } else {
+          status.textContent = data.error || 'Ошибка';
+        }
+      } catch (err) {
+        status.textContent = 'Ошибка';
+      }
+    });
+  }
 }
 
 async function loadData() {
@@ -266,4 +305,7 @@ function renderGamesAdmin(games) {
 
 function redirectToLogin() {
   window.location.href = 'index.html';
+}
+} catch (e) {
+  console.error('[admin.js] FATAL ERROR:', e);
 }

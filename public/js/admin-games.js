@@ -1,6 +1,7 @@
-const API_BASE = 'http://localhost:5000';
 let games = [];
 
+console.log('[admin-games.js] script loaded');
+try {
 document.addEventListener('DOMContentLoaded', async () => {
   console.log('[admin-games.js] DOMContentLoaded');
   if (document.getElementById('admin-games-section')) {
@@ -13,7 +14,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 });
 
 async function loadGames() {
-  const res = await fetch(`${API_BASE}/api/games`);
+  const res = await fetch(`${window.API_BASE}/api/games`);
   games = await res.json();
   renderGames();
 }
@@ -47,7 +48,7 @@ function setupGameForm() {
       console.log(`[admin-games.js] formData: ${key} =`, value);
     }
     try {
-      const resp = await fetch(`${API_BASE}/api/games`, {
+      const resp = await fetch(`${window.API_BASE}/api/games`, {
         method: 'POST',
         headers: { 'Authorization': `Bearer ${localStorage.getItem('token')}` },
         body: formData
@@ -70,9 +71,12 @@ window.editGame = function(id) {
 
 window.deleteGame = async function(id) {
   if (!confirm('Удалить игру?')) return;
-  await fetch(`${API_BASE}/api/games/${id}`, {
+  await fetch(`${window.API_BASE}/api/games/${id}`, {
     method: 'DELETE',
     headers: { 'Authorization': `Bearer ${localStorage.getItem('token')}` }
   });
   await loadGames();
 };
+} catch (e) {
+  console.error('[admin-games.js] FATAL ERROR:', e);
+}

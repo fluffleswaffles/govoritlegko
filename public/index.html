@@ -50,6 +50,9 @@
     </a>
     <ul class="dropdown-menu">
       <li><a href="#" class="logout-btn">Выйти</a></li>
+      <li class="profile-menu-item">
+        <a href="#" class="profile-btn">Профиль</a>
+      </li>
       <li class="admin-menu-item" style="display: none;">
         <a href="admin.html" class="admin-btn">Админ-панель</a>
       </li>
@@ -72,12 +75,30 @@
     <h1>Добро пожаловать!</h1>
     <p>Развивающая платформа для развития речи у детей</p>
   </section>
+
+  <!-- Новости -->
+  <section class="news-section">
+    <h2>Новости</h2>
+    <div class="news-carousel" id="newsCarousel">
+      <!-- Новости будут добавляться динамически -->
+    </div>
+  </section>
 </main>
+
+<!-- Модалка для новости -->
+<div id="newsModal" class="news-modal" aria-hidden="true" role="dialog" aria-modal="true">
+  <div class="news-modal-content">
+    <button class="close-news-btn" aria-label="Закрыть новость" onclick="closeNewsModal()">×</button>
+    <img id="newsModalImage" src="" alt="news image" class="news-modal-image"/>
+    <h3 id="newsModalTitle"></h3>
+    <div id="newsModalText" class="news-modal-text"></div>
+  </div>
+</div>
 
 <!-- Модалка -->
 <div id="loginModal" aria-hidden="true" role="dialog" aria-modal="true">
   <div class="modal-content">
-    <button class="close-btn" aria-label="Закрыть" onclick="closeLoginModal()">×</button>
+    <button class="close-btn" aria-label="Закрыть" type="button" onclick="closeLoginModal()">×</button>
 
     <div class="tabs">
       <button id="loginTab" class="tab active" onclick="showLogin()">Вход</button>
@@ -110,10 +131,13 @@
         <input type="password" id="admin-secret" placeholder="Секретный ключ администратора">
       </div>
       <script>
-      document.getElementById('show-admin-register').addEventListener('click', (e) => {
-        e.preventDefault();
-        document.getElementById('admin-secret-container').style.display = 'block';
-      });
+      const showAdminRegisterBtn = document.getElementById('show-admin-register');
+      if (showAdminRegisterBtn) {
+        showAdminRegisterBtn.addEventListener('click', (e) => {
+          e.preventDefault();
+          document.getElementById('admin-secret-container').style.display = 'block';
+        });
+      }
       </script>
       <button type="submit" class="submit-btn">
         Зарегистрироваться
@@ -123,40 +147,12 @@
 </div>
 
 <script>
-  function openLoginModal() {
-    const modal = document.getElementById('loginModal');
-    modal.classList.add('active');
-    showLogin();
-  }
-
-  function closeLoginModal() {
-    const modal = document.getElementById('loginModal');
-    modal.classList.remove('active');
-  }
-
-  function showLogin() {
-    document.getElementById('loginForm').style.display = 'flex';
-    document.getElementById('registerForm').style.display = 'none';
-
-    document.getElementById('loginTab').classList.add('active');
-    document.getElementById('registerTab').classList.remove('active');
-  }
-
-  function showRegister() {
-    document.getElementById('loginForm').style.display = 'none';
-    document.getElementById('registerForm').style.display = 'flex';
-
-    document.getElementById('registerTab').classList.add('active');
-    document.getElementById('loginTab').classList.remove('active');
-  }
-</script>
-
-<script>
   const API_URL = "http://127.0.0.1:5000/api/auth";
   const API_BASE = 'http://localhost:5000'; 
 
   document.addEventListener('DOMContentLoaded', async () => {
     await checkAuth();
+    fetchNews();
   });
 
   
@@ -184,7 +180,33 @@ async function checkAuth() {
   }
 }
 
-  function handleAccountClick() {
+async function fetchNews() {
+  try {
+    const res = await fetch(`${API_BASE}/api/news`);
+    const newsArr = await res.json();
+    renderNews(newsArr);
+  } catch (err) {
+    console.error('Ошибка загрузки новостей:', err);
+  }
+}
+
+function renderNews(newsArr) {
+  const carousel = document.getElementById('newsCarousel');
+  carousel.innerHTML = '';
+  newsArr.forEach(news => {
+    const card = document.createElement('div');
+    card.className = 'news-card';
+    card.innerHTML = `
+      <img src="${API_BASE}${news.imageUrl}" alt="news image" width="800" height="480"/>
+      <div class="news-title">${news.title}</div>
+      <div class="news-text">${news.text}</div>
+    `;
+    card.onclick = () => openNewsModal(news);
+    carousel.appendChild(card);
+  });
+}
+
+function handleAccountClick() {
     const token = localStorage.getItem('token');
     if (!token) {
       openLoginModal();
@@ -212,16 +234,16 @@ async function checkAuth() {
 
         adminMenuItem.style.display = (isAdmin && currentUserIsAdmin) ? 'block' : 'none';
         adminMenuItem.classList.toggle('admin-visible', isAdmin);
-        
-        console.log(`Admin button visibility: 
-          Server isAdmin: ${isAdmin}, 
-          Local isAdmin: ${currentUserIsAdmin}`);
       }
+      const profileMenuItem = document.querySelector('.profile-menu-item');
+      if (profileMenuItem) profileMenuItem.style.display = 'block';
       
     } else {
       accountMenu.classList.remove('logged-in');
       accountName.textContent = 'Вход';
       document.querySelector('.account-btn').onclick = openLoginModal;
+      const profileMenuItem = document.querySelector('.profile-menu-item');
+      if (profileMenuItem) profileMenuItem.style.display = 'none';
     }
   }
 
@@ -302,6 +324,438 @@ async function checkAuth() {
       alert('Ошибка сети');
     }
   });
+
+  function openNewsModal(news) {
+  document.getElementById('newsModalImage').src = API_BASE + news.imageUrl;
+  document.getElementById('newsModalTitle').textContent = news.title;
+  document.getElementById('newsModalText').innerHTML = news.text;
+  document.getElementById('newsModal').classList.add('active');
+  document.querySelector('.news-modal-content').classList.add('active');
+  document.getElementById('newsModal').setAttribute('aria-hidden', 'false');
+}
+
+function closeNewsModal() {
+  document.getElementById('newsModal').classList.remove('active');
+  document.querySelector('.news-modal-content').classList.remove('active');
+  document.getElementById('newsModal').setAttribute('aria-hidden', 'true');
+}
+
+function openLoginModal() {
+  const modal = document.getElementById('loginModal');
+  if (modal) {
+    modal.classList.add('active');
+    modal.setAttribute('aria-hidden', 'false');
+  }
+}
+
+function closeLoginModal() {
+  const modal = document.getElementById('loginModal');
+  if (modal) {
+    modal.classList.remove('active');
+    modal.setAttribute('aria-hidden', 'true');
+  }
+}
+
+function openProfileModal() {
+  let modal = document.getElementById('profileModal');
+  if (!modal) {
+    modal = document.createElement('div');
+    modal.id = 'profileModal';
+    modal.className = 'news-modal';
+    modal.setAttribute('aria-hidden', 'true');
+    modal.setAttribute('role', 'dialog');
+    modal.setAttribute('aria-modal', 'true');
+    modal.innerHTML = `
+      <div class="profile-modal-content">
+        <button class="close-news-btn" aria-label="Закрыть профиль" onclick="closeProfileModal()">×</button>
+        <div class="profile-main-row">
+          <div class="profile-avatar-block">
+            <div id="profileAvatarWrap" class="profile-avatar-img"></div>
+            <div class="profile-info-block">
+              <div id="profileUsername" class="profile-username"></div>
+              <div id="profileEmail" class="profile-email"></div>
+              <div id="profileSubEnd" class="profile-subend"></div>
+            </div>
+          </div>
+          <div class="profile-friends-achievements">
+            <div class="profile-friends-section profile-card">
+              <div class="profile-section-title">Друзья</div>
+              <div id="profileFriends" class="profile-friends-list"></div>
+              <div id="incomingRequests"></div>
+              <div id="outgoingRequests"></div>
+              <div id="friendRequestsBlock"></div>
+              <div id="addFriendFormContainer"></div>
+            </div>
+            <div class="profile-achievements-section profile-card">
+              <div class="profile-section-title">Достижения</div>
+              <div id="profileAchievements" class="profile-achievements-list"></div>
+            </div>
+          </div>
+        </div>
+        <div id="profileMessages" class="profile-messages"></div>
+      </div>
+    `;
+    document.body.appendChild(modal);
+  }
+  fetchUserProfile();
+  modal.classList.add('active');
+  modal.setAttribute('aria-hidden', 'false');
+  modal.querySelector('.profile-modal-content').classList.add('active');
+}
+
+function closeProfileModal() {
+  const modal = document.getElementById('profileModal');
+  if (modal) {
+    modal.classList.remove('active');
+    modal.setAttribute('aria-hidden', 'true');
+    modal.querySelector('.profile-modal-content').classList.remove('active');
+  }
+}
+
+document.addEventListener('DOMContentLoaded', () => {
+  const profileBtn = document.querySelector('.profile-btn');
+  if (profileBtn) {
+    profileBtn.addEventListener('click', (e) => {
+      e.preventDefault();
+      openProfileModal();
+    });
+  }
+});
+
+async function fetchUserProfile() {
+  try {
+    const token = localStorage.getItem('token');
+    if (!token) {
+      alert('Вы не авторизованы!');
+      closeProfileModal();
+      return;
+    }
+    const res = await fetch(`${API_BASE}/api/profile`, {
+      headers: { 'Authorization': `Bearer ${token}` }
+    });
+    if (res.status === 401) {
+      alert('Сессия истекла, войдите заново.');
+      closeProfileModal();
+      localStorage.removeItem('token');
+      updateAuthUI(null, false);
+      openLoginModal();
+      return;
+    }
+    if (!res.ok) throw new Error('Ошибка загрузки профиля');
+    const data = await res.json();
+    console.log('PROFILE MODAL: data.avatar =', data.avatar);
+    if (data.avatar) console.log('PROFILE MODAL: data.avatar.data =', data.avatar.data);
+    const avatarWrap = document.getElementById('profileAvatarWrap');
+    if (avatarWrap) {
+      if (data.avatarUrl) {
+        avatarWrap.innerHTML = `<img src="${API_BASE}${data.avatarUrl}?t=${Date.now()}" alt="avatar" class="profile-avatar-img-png" style="width:140px;height:140px;border-radius:50%;background:#eee;object-fit:cover;">`;
+      } else if (data.avatarData) {
+        renderProfileAvatar(data.avatarData, avatarWrap);
+      } else {
+        avatarWrap.innerHTML = '<div class="profile-avatar-placeholder"></div>';
+      }
+    }
+    document.getElementById('profileUsername').textContent = data.username || '';
+    document.getElementById('profileEmail').textContent = data.email || '';
+    let idElem = document.getElementById('profileUserId');
+    if (!idElem) {
+      idElem = document.createElement('div');
+      idElem.id = 'profileUserId';
+      idElem.className = 'profile-userid';
+      document.getElementById('profileUsername').after(idElem);
+    }
+    idElem.textContent = data.id ? `ID: ${data.id}` : '';
+    document.getElementById('profileSubEnd').textContent = 'Дата окончания подписки: —';
+    const friendsEl = document.getElementById('profileFriends');
+    if (friendsEl) {
+      friendsEl.innerHTML = (data.friends && data.friends.length ? data.friends.map(f => `<button class="profile-friend-btn" data-id="${f.id}">${f.username}</button>`).join('') : '<span class="profile-friend-empty">нет</span>');
+    }
+    const achievementsEl = document.getElementById('profileAchievements');
+    if (achievementsEl) {
+      achievementsEl.innerHTML = (data.achievements && data.achievements.length ? data.achievements.map(a => `<span class=\"profile-achievement\">🏆 ${a.title}</span>`).join('') : '<span class="profile-achievement-empty">нет</span>');
+    }
+    const messagesEl = document.getElementById('profileMessages');
+    if (messagesEl) {
+      messagesEl.innerHTML = '<b>Сообщения:</b><br>' + (data.messages && data.messages.length ? data.messages.map(m => `<div class=\"profile-message\"><div>${m.text}</div>${m.reward ? `<div class=\"profile-message-reward\">Награда: ${m.reward}</div>` : ''}</div>`).join('') : 'нет новых сообщений');
+    }
+    let requestsBlock = document.getElementById('friendRequestsBlock');
+    if (!requestsBlock) {
+      requestsBlock = document.createElement('div');
+      requestsBlock.id = 'friendRequestsBlock';
+      if (friendsEl && friendsEl.parentElement) friendsEl.parentElement.appendChild(requestsBlock);
+    }
+    try {
+      const reqRes = await fetch(`${API_BASE}/api/friends/requests`, {
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+      if (reqRes.ok) {
+        const reqData = await reqRes.json();
+        const incoming = reqData.incoming || [];
+        const incomingDiv = document.getElementById('incomingRequests');
+        if (incomingDiv) {
+          incomingDiv.innerHTML = '<b>Входящие:</b> ' + (incoming.length ? incoming.map(r => `
+            <span class="friend-request-incoming" data-userid="${r.userId}">
+              <button class="profile-friend-btn" data-id="${r.userId}">${r.fromUsername || 'ID ' + r.userId}</button>
+              <button class="accept-friend-btn" data-id="${r.id}">Принять</button>
+              <button class="reject-friend-btn" data-id="${r.id}">Отклонить</button>
+            </span>
+          `).join('') : '<span class="friend-request-empty">нет</span>');
+        }
+        const outgoing = reqData.outgoing || [];
+        const outgoingDiv = document.getElementById('outgoingRequests');
+        if (outgoingDiv) {
+          outgoingDiv.innerHTML = '<b>Исходящие:</b> ' + (outgoing.length ? outgoing.map(r => `
+            <span class="friend-request-outgoing" data-userid="${r.friendId}">
+              <button class="profile-friend-btn" data-id="${r.friendId}">${r.toUsername || 'ID ' + r.friendId}</button>
+              <span style="color:#888;">(ожидание)</span>
+            </span>
+          `).join('') : '<span class="friend-request-empty">нет</span>');
+        }
+        addFriendProfileClickHandlers();
+        if (incomingDiv) {
+          incomingDiv.querySelectorAll('.accept-friend-btn').forEach(btn => {
+            btn.onclick = async () => {
+              const reqId = btn.getAttribute('data-id');
+              btn.disabled = true;
+              await fetch(`${API_BASE}/api/friends/accept`, {
+                method: 'POST',
+                headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
+                body: JSON.stringify({ requestId: reqId })
+              });
+              fetchUserProfile();
+            };
+          });
+          incomingDiv.querySelectorAll('.reject-friend-btn').forEach(btn => {
+            btn.onclick = async () => {
+              const reqId = btn.getAttribute('data-id');
+              btn.disabled = true;
+              await fetch(`${API_BASE}/api/friends/reject`, {
+                method: 'POST',
+                headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
+                body: JSON.stringify({ requestId: reqId })
+              });
+              fetchUserProfile();
+            };
+          });
+        }
+      }
+    } catch (err) {
+      const incomingDiv = document.getElementById('incomingRequests');
+      const outgoingDiv = document.getElementById('outgoingRequests');
+      if (incomingDiv) incomingDiv.innerHTML = '<span class="friend-request-empty">Ошибка загрузки заявок</span>';
+      if (outgoingDiv) outgoingDiv.innerHTML = '';
+    }
+    let addFriendFormContainer = document.getElementById('addFriendFormContainer');
+    if (!addFriendFormContainer) {
+      addFriendFormContainer = document.createElement('div');
+      addFriendFormContainer.id = 'addFriendFormContainer';
+      if (friendsEl && friendsEl.parentElement) friendsEl.parentElement.appendChild(addFriendFormContainer);
+    }
+    let addFriendForm = document.getElementById('addFriendForm');
+    if (!addFriendForm) {
+      addFriendForm = document.createElement('form');
+      addFriendForm.id = 'addFriendForm';
+      addFriendForm.innerHTML = `
+        <input type="number" id="addFriendIdInput" placeholder="ID друга" min="1" required style="width:90px;"> 
+        <button type="submit">Добавить в друзья</button>
+        <span id="addFriendStatus" style="margin-left:10px;font-size:0.9em;"></span>
+      `;
+      addFriendFormContainer.appendChild(addFriendForm);
+    }
+    addFriendForm.onsubmit = async (e) => {
+      e.preventDefault();
+      const friendId = document.getElementById('addFriendIdInput').value;
+      const status = document.getElementById('addFriendStatus');
+      status.textContent = '...';
+      try {
+        const token = localStorage.getItem('token');
+        const res = await fetch(`${API_BASE}/api/friends/add`, {
+          method: 'POST',
+          headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
+          body: JSON.stringify({ friendId: Number(friendId) })
+        });
+        const resp = await res.json();
+        if (res.ok && resp.success) {
+          status.textContent = 'Добавлен!';
+        } else {
+          status.textContent = resp.error || 'Ошибка';
+        }
+      } catch (err) {
+        status.textContent = 'Ошибка';
+      }
+    };
+
+  } catch (err) {
+    console.error('Ошибка загрузки профиля:', err);
+    alert('Ошибка загрузки профиля');
+    closeProfileModal();
+  }
+}
+
+function openFriendProfileModal(friendId) {
+  let modal = document.getElementById('friendProfileModal');
+  if (!modal) {
+    modal = document.createElement('div');
+    modal.id = 'friendProfileModal';
+    modal.className = 'news-modal';
+    modal.setAttribute('aria-hidden', 'true');
+    modal.setAttribute('role', 'dialog');
+    modal.setAttribute('aria-modal', 'true');
+    modal.innerHTML = `
+      <div class="profile-modal-content">
+        <button class="close-news-btn" aria-label="Закрыть профиль друга" onclick="closeFriendProfileModal()">×</button>
+        <div class="profile-main-row">
+          <div class="profile-avatar-block">
+            <div id="friendProfileAvatarWrap" class="profile-avatar-img"></div>
+            <div class="profile-info-block">
+              <div id="friendProfileUsername" class="profile-username"></div>
+              <div id="friendProfileEmail" class="profile-email"></div>
+            </div>
+          </div>
+          <div class="profile-friends-achievements">
+            <div class="profile-friends-section">
+              <div class="profile-section-title">Друзья</div>
+              <div id="friendProfileFriends" class="profile-friends-list"></div>
+            </div>
+            <div class="profile-achievements-section">
+              <div class="profile-section-title">Достижения</div>
+              <div id="friendProfileAchievements" class="profile-achievements-list"></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    `;
+    document.body.appendChild(modal);
+  }
+  fetchFriendProfile(friendId);
+  modal.classList.add('active');
+  modal.setAttribute('aria-hidden', 'false');
+  modal.querySelector('.profile-modal-content').classList.add('active');
+}
+function closeFriendProfileModal() {
+  const modal = document.getElementById('friendProfileModal');
+  if (modal) {
+    modal.classList.remove('active');
+    modal.setAttribute('aria-hidden', 'true');
+    modal.querySelector('.profile-modal-content').classList.remove('active');
+  }
+}
+async function fetchFriendProfile(friendId) {
+  try {
+    const token = localStorage.getItem('token');
+    const res = await fetch(`${API_BASE}/api/profile/${friendId}`, {
+      headers: { 'Authorization': `Bearer ${token}` }
+    });
+    if (!res.ok) throw new Error('Ошибка загрузки профиля друга');
+    const data = await res.json();
+    const avatarWrap = document.getElementById('friendProfileAvatarWrap');
+    if (avatarWrap) {
+      if (data.avatarUrl) {
+        avatarWrap.innerHTML = `<img src="${API_BASE}${data.avatarUrl}?t=${Date.now()}" alt="avatar" class="profile-avatar-img-png" style="width:100px;height:100px;border-radius:50%;background:#eee;object-fit:cover;">`;
+      } else if (data.avatarData) {
+        renderProfileAvatar(data.avatarData, avatarWrap);
+        avatarWrap.querySelectorAll('img').forEach(img => {
+          img.style.width = '100px';
+          img.style.height = '100px';
+        });
+      } else {
+        avatarWrap.innerHTML = '<div class="profile-avatar-placeholder" style="width:100px;height:100px;"></div>';
+      }
+    }
+    document.getElementById('friendProfileUsername').textContent = data.username || '';
+    document.getElementById('friendProfileEmail').textContent = data.email || '';
+    document.getElementById('friendProfileFriends').innerHTML = (data.friends && data.friends.length ? data.friends.map(f => `<button class=\"profile-friend-btn\" data-id="${f.id}">${f.username}</button>`).join('') : '<span class="profile-friend-empty">нет</span>');
+    document.getElementById('friendProfileAchievements').innerHTML = (data.achievements && data.achievements.length ? data.achievements.map(a => `<span class=\"profile-achievement\"> ${a.title}</span>`).join('') : '<span class="profile-achievement-empty">нет</span>');
+    let removeBtn = document.getElementById('removeFriendBtn');
+    if (removeBtn) remove();
+    if (data.isFriend) {
+      let infoBlock = null;
+      const avatarWrapElem = document.getElementById('friendProfileAvatarWrap');
+      if (avatarWrapElem && avatarWrapElem.parentElement) {
+        infoBlock = avatarWrapElem.parentElement.querySelector('.profile-info-block');
+      }
+      if (!infoBlock) {
+        infoBlock = document.querySelector('#friendProfileModal .profile-info-block');
+      }
+      if (!infoBlock) {
+        console.warn('Не найден infoBlock для кнопки удаления друга!');
+      } else {
+        if (!infoBlock.querySelector('#removeFriendBtn')) {
+          const btn = document.createElement('button');
+          btn.id = 'removeFriendBtn';
+          btn.textContent = 'Удалить из друзей';
+          btn.className = 'remove-friend-btn';
+          btn.onclick = async () => {
+            btn.disabled = true;
+            try {
+              const token = localStorage.getItem('token');
+              const res = await fetch(`${API_BASE}/api/friends/remove`, {
+                method: 'POST',
+                headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
+                body: JSON.stringify({ friendId: data.id })
+              });
+              if (res.ok) {
+                btn.textContent = 'Удалён';
+                setTimeout(closeFriendProfileModal, 800);
+                fetchUserProfile();
+              } else {
+                btn.textContent = 'Ошибка';
+                btn.disabled = false;
+              }
+            } catch {
+              btn.textContent = 'Ошибка';
+              btn.disabled = false;
+            }
+          };
+          infoBlock.appendChild(btn);
+        }
+      }
+    }
+    document.querySelectorAll('#friendProfileFriends .profile-friend-btn').forEach(el => {
+      el.onclick = (e) => {
+        const id = el.getAttribute('data-id');
+        if (id) openFriendProfileModal(id);
+      };
+    });
+  } catch (err) {
+    alert('Ошибка загрузки профиля друга');
+    closeFriendProfileModal();
+  }
+}
+
+function addFriendProfileClickHandlers() {
+  document.querySelectorAll('#profileFriends .profile-friend-btn').forEach(el => {
+    el.onclick = (e) => {
+      const id = el.getAttribute('data-id');
+      if (id) openFriendProfileModal(id);
+    };
+  });
+  document.querySelectorAll('#incomingRequests .friend-request-incoming .profile-friend-btn').forEach(el => {
+    el.onclick = (e) => {
+      const id = el.getAttribute('data-id');
+      if (id) openFriendProfileModal(id);
+    };
+  });
+  document.querySelectorAll('#outgoingRequests .friend-request-outgoing .profile-friend-btn').forEach(el => {
+    el.onclick = (e) => {
+      const id = el.getAttribute('data-id');
+      if (id) openFriendProfileModal(id);
+    };
+  });
+}
+
+function showLogin() {
+  document.getElementById('loginForm').style.display = '';
+  document.getElementById('registerForm').style.display = 'none';
+  document.getElementById('loginTab').classList.add('active');
+  document.getElementById('registerTab').classList.remove('active');
+}
+function showRegister() {
+  document.getElementById('loginForm').style.display = 'none';
+  document.getElementById('registerForm').style.display = '';
+  document.getElementById('loginTab').classList.remove('active');
+  document.getElementById('registerTab').classList.add('active');
+}
 </script>
 
 </body>

@@ -1,32 +1,64 @@
-const API_BASE = 'http://localhost:5000';
+
 let currentUser = null;
 let equippedItems = [];
 let userInventory = [];
 let allItems = [];
-
 let userCoins = 0;
+
+console.log('Avatar script initialized');
+console.assert(typeof updateAuthUI === 'function', 'updateAuthUI not found');
 
 document.addEventListener('DOMContentLoaded', async () => {
   try {
-    await checkAuthAndLoadData();
-    await initializeAvatarPage();
-    setupEventListeners();
-    loadUserData();
+    if (!(await avatarCheckAuth())) {
+      redirectToLogin();
+      return;
+    }
+    
+    await Promise.all([
+      loadInitialData(),
+      loadUserData()
+    ]);
+    
+    initializePage();
   } catch (error) {
     console.error('Initialization error:', error);
     handleAuthError();
   }
 });
 
-async function checkAuthAndLoadData() {
+async function avatarCheckAuth() {
   const token = localStorage.getItem('token');
-  if (!token) redirectToLogin();
+  if (!token) return false;
 
   try {
-    const [authCheck, avatarRes, shopRes, inventoryRes] = await Promise.all([
-      fetch(`${API_BASE}/api/auth/check`, {
-        headers: { 'Authorization': `Bearer ${token}` }
-      }),
+    const response = await fetch(`${API_BASE}/api/auth/check`, {
+      headers: { 
+        'Authorization': `Bearer ${token}`,
+        'Content-Type': 'application/json'
+      }
+    });
+    
+    if (response.ok) {
+      currentUser = await response.json();
+      return true;
+    }
+    return false;
+  } catch (error) {
+    console.error('Auth check error:', error);
+    return false;
+  }
+}
+
+function handleAuthError() {
+  localStorage.removeItem('token');
+  redirectToLogin();
+}
+
+async function loadInitialData() {
+  const token = localStorage.getItem('token');
+  try {
+    const [avatarRes, shopRes, inventoryRes] = await Promise.all([
       fetch(`${API_BASE}/api/avatar`, { 
         headers: { 'Authorization': `Bearer ${token}` }
       }),
@@ -36,76 +68,14 @@ async function checkAuthAndLoadData() {
       })
     ]);
 
-    if (!authCheck.ok) throw new Error('Auth failed');
-    if (!avatarRes.ok || !shopRes.ok || !inventoryRes.ok) {
-      throw new Error('Data loading failed');
-    }
-
-    currentUser = await authCheck.json();
-    const avatarData = await avatarRes.json();
-    const shopData = await shopRes.json();
-    const inventoryData = await inventoryRes.json();
-
-    equippedItems = (avatarData.equippedItems || []).map(item => ({
-      ...item,
-      id: String(item.id)
-    }));
-    
-    allItems = (shopData || []).map(item => ({
-      ...item,
-      id: String(item.id)
-    }));
-    
-    userInventory = (inventoryData || []).map(item => ({
-      ...item,
-      id: String(item.id)
-    }));
-
-    updateAuthUI(currentUser.username, currentUser.isAdmin);
+    [equippedItems, allItems, userInventory] = await Promise.all([
+      avatarRes.ok ? avatarRes.json().then(data => data.equippedItems || []) : [],
+      shopRes.ok ? shopRes.json() : [],
+      inventoryRes.ok ? inventoryRes.json() : []
+    ]);
     
   } catch (error) {
-    console.error('Initialization error:', error);
-    localStorage.removeItem('token');
-    redirectToLogin();
-    throw error;
-  }
-}
-async function initializeAvatarPage() {
-  try {
-    await checkAuthAndLoadData();
-    setupTabs();
-    updateUI();
-  } catch (error) {
-    console.error('Ошибка инициализации:', error);
-  }
-}
-
-async function loadAvatarData() {
-  try {
-    const response = await fetch(`${API_BASE}/api/avatar`, {
-      headers: { 'Authorization': `Bearer ${localStorage.getItem('token')}` }
-    });
-    
-    if (!response.ok) {
-      throw new Error(`Failed to load avatar: ${response.status}`);
-    }
-    
-    return await response.json();
-  } catch (error) {
-    console.error('Error loading avatar:', error);
-    throw error;
-  }
-}
-
-async function loadShopItems() {
-  try {
-    const response = await fetch(`${API_BASE}/api/shop`);
-    if (!response.ok) {
-      throw new Error(`Failed to load shop: ${response.status}`);
-    }
-    return await response.json();
-  } catch (error) {
-    console.error('Error loading shop:', error);
+    console.error('Data loading error:', error);
     throw error;
   }
 }
@@ -121,30 +91,6 @@ async function updateCoinsDisplay() {
   }
 }
 
-function updateAuthUI(username, isAdmin) {
-  const accountMenu = document.querySelector('.account-menu');
-  const accountName = document.querySelector('.account-name');
-  
-  if (username) {
-    accountName.textContent = username;
-    accountMenu.classList.add('logged-in');
-    
-    const logoutBtn = document.querySelector('.logout-btn');
-    if (logoutBtn) {
-      logoutBtn.addEventListener('click', (e) => {
-        e.preventDefault();
-        localStorage.removeItem('token');
-        window.location.reload();
-      });
-    }
-    
-    const adminItem = document.querySelector('.admin-menu-item');
-    if (adminItem) {
-      adminItem.style.display = isAdmin ? 'block' : 'none';
-    }
-  }
-}
-
 async function loadUserData() {
   try {
     const response = await fetch(`${API_BASE}/api/user/me`, {
@@ -154,26 +100,43 @@ async function loadUserData() {
     userCoins = data.coins || 0;
     updateCoinsDisplay();
   } catch (error) {
-    console.error('Ошибка загрузки данных:', error);
+    console.error('Error loading user data:', error);
   }
 }
 
+function initializePage() {
+  setupTabs();
+  setupEventListeners();
+  updateUI();
+}
+
 function updateUI() {
-  const activeTab = document.querySelector('.avatar-tab.active');
-  const activeTabId = activeTab?.dataset.tab || 'face';
   renderAvatar();
-  renderInventory(activeTabId);
+  renderInventory(getActiveTab());
   renderShopItems();
+}
+
+function getActiveTab() {
+  const activeTab = document.querySelector('.avatar-tab.active');
+  return activeTab?.dataset.tab || 'face';
 }
 
 function renderAvatar() {
   const avatarBase = document.querySelector('.avatar-base');
-  if (!avatarBase) return;
+  if (!avatarBase) {
+    console.error('Элемент .avatar-base не найден');
+    return;
+  }
+  const baseUrl = `${API_BASE}/assets/avatars/base/base.png`;
+  console.log('Пытаюсь загрузить:', baseUrl);
   
   avatarBase.innerHTML = '';
   const base = document.createElement('div');
   base.className = 'avatar-part base';
-  base.style.backgroundImage = `url(${API_BASE}/assets/avatars/base/base.png)`;
+  base.style.backgroundImage = `url(${baseUrl})`;
+  base.onload = () => console.log('Base image loaded');
+  base.onerror = () => console.error('Failed to load base image');
+  
   avatarBase.appendChild(base);
 
   equippedItems.forEach(item => {
@@ -386,8 +349,6 @@ async function toggleItemEquip(itemId, itemType) {
   }
 }
 
-
-
 async function buyItem(itemId) {
   try {
     const response = await fetch(`${API_BASE}/api/shop/buy`, {
@@ -500,52 +461,56 @@ async function drawImageOnCanvas(ctx, url, w, h) {
 }
 
 function setupEventListeners() {
-    document.querySelectorAll('.avatar-items-container').forEach(container => {
-      container.addEventListener('click', async (e) => {
-        const itemElement = e.target.closest('.avatar-item');
-        if (!itemElement) return;
-        try {
-            const itemId = itemElement.dataset.itemId;
-            const item = userInventory.find(i => String(i.id) === String(itemId));
-            
-            if (!item) {
-            throw new Error('Предмет не найден');
-            }
-            
-            console.log('Equipping item:', {
-            id: item.id,
-            type: item.type,
-            name: item.name
-            });
-            
-            await toggleItemEquip(item.id, item.type);
-        } catch (error) {
-            console.error('Item click error:', error);
-            showNotification(error.message, 'error');
+  document.addEventListener('click', async (e) => {
+    const avatarItem = e.target.closest('.avatar-item');
+    if (avatarItem) {
+      try {
+        const itemId = avatarItem.dataset.itemId;
+        const itemType = avatarItem.dataset.itemType;
+        const item = userInventory.find(i => String(i.id) === String(itemId));
+        
+        if (!item) {
+          throw new Error('Предмет не найден');
         }
-    });
-  });
-  
-  const shopContainer = document.querySelector('.shop-items');
-  if (shopContainer) {
-    shopContainer.addEventListener('click', (e) => {
-      const buyBtn = e.target.closest('.buy-btn');
-      if (!buyBtn) return;
-      
-      const itemId = buyBtn.dataset.id;
-      buyItem(itemId);
-    });
-  }
-  const saveBtn = document.querySelector('.save-avatar-btn');
-  if (saveBtn) {
-    saveBtn.addEventListener('click', saveAvatarState);
-  }
-  document.querySelector('.shop-items-container')?.addEventListener('click', (e) => {
+        
+        console.log('Equipping item:', { id: item.id, type: item.type, name: item.name });
+        await toggleItemEquip(item.id, item.type);
+      } catch (error) {
+        console.error('Item click error:', error);
+        showNotification(error.message, 'error');
+      }
+      return;
+    }
+
     const buyBtn = e.target.closest('.buy-btn');
-    if (!buyBtn) return;
-    
-    const itemId = buyBtn.dataset.id;
-    buyItem(itemId);
+    if (buyBtn) {
+      try {
+        const itemId = buyBtn.dataset.id;
+        await buyItem(itemId);
+      } catch (error) {
+        console.error('Buy error:', error);
+        showNotification(error.message, 'error');
+      }
+      return;
+    }
+
+    const avatarTab = e.target.closest('.avatar-tab');
+    if (avatarTab) {
+      document.querySelectorAll('.avatar-tab').forEach(t => t.classList.remove('active'));
+      avatarTab.classList.add('active');
+      renderInventory(avatarTab.dataset.tab);
+      return;
+    }
+
+    const saveBtn = e.target.closest('.save-avatar-btn');
+    if (saveBtn) {
+      try {
+        await saveAvatarState();
+      } catch (error) {
+        console.error('Save error:', error);
+        showNotification(error.message, 'error');
+      }
+    }
   });
 }
 
@@ -585,11 +550,7 @@ function showNotification(message, type = 'success') {
   }, 5000);
 }
 
-function redirectToLogin() {
-  window.location.href = 'index.html';
-}
 
-function handleAuthError() {
-  localStorage.removeItem('token');
-  redirectToLogin();
+function redirectToLogin() {
+  window.location.href = `index.html?returnUrl=${encodeURIComponent(window.location.pathname)}`;
 }

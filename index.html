@@ -1,0 +1,87 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Говорить Легко</title>
+  <link rel="stylesheet" href="css/style.css" />
+</head>
+<body>
+<main>
+  <section class="hero" style="padding: 20px;">
+    <h1>Добро пожаловать!</h1>
+    <p>Развивающая платформа для развития речи у детей</p>
+  </section>
+
+  <!-- Новости -->
+  <section class="news-section">
+    <h2>Новости</h2>
+    <div class="news-carousel" id="newsCarousel">
+      <!-- Новости будут добавляться динамически -->
+    </div>
+  </section>
+</main>
+
+<!-- Модалка для новости -->
+<div id="newsModal" class="news-modal" aria-hidden="true" role="dialog" aria-modal="true">
+  <div class="news-modal-content">
+    <button class="close-news-btn" aria-label="Закрыть новость" onclick="closeNewsModal()">×</button>
+    <img id="newsModalImage" src="" alt="news image" class="news-modal-image"/>
+    <h3 id="newsModalTitle"></h3>
+    <div id="newsModalText" class="news-modal-text"></div>
+  </div>
+</div>
+
+<script src="js/navbar.js"></script>
+
+<script>
+  document.addEventListener('DOMContentLoaded', async () => {
+    await checkAuth();
+    fetchNews();
+  });
+
+async function fetchNews() {
+  try {
+    const res = await fetch(`${API_BASE}/api/news`);
+    const newsArr = await res.json();
+    renderNews(newsArr);
+  } catch (err) {
+    console.error('Ошибка загрузки новостей:', err);
+  }
+}
+
+function renderNews(newsArr) {
+  const carousel = document.getElementById('newsCarousel');
+  carousel.innerHTML = '';
+  newsArr.forEach(news => {
+    const card = document.createElement('div');
+    card.className = 'news-card';
+    card.innerHTML = `
+      <img src="${API_BASE}${news.imageUrl}" alt="news image" width="800" height="480"/>
+      <div class="news-title">${news.title}</div>
+      <div class="news-text">${news.text}</div>
+    `;
+    card.onclick = () => openNewsModal(news);
+    carousel.appendChild(card);
+  });
+}
+
+
+  function openNewsModal(news) {
+  document.getElementById('newsModalImage').src = API_BASE + news.imageUrl;
+  document.getElementById('newsModalTitle').textContent = news.title;
+  document.getElementById('newsModalText').innerHTML = news.text;
+  document.getElementById('newsModal').classList.add('active');
+  document.querySelector('.news-modal-content').classList.add('active');
+  document.getElementById('newsModal').setAttribute('aria-hidden', 'false');
+}
+
+function closeNewsModal() {
+  document.getElementById('newsModal').classList.remove('active');
+  document.querySelector('.news-modal-content').classList.remove('active');
+  document.getElementById('newsModal').setAttribute('aria-hidden', 'true');
+}
+</script>
+
+</body>
+</html>

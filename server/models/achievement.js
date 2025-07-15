@@ -20,7 +20,14 @@ module.exports = (sequelize) => {
     }
   }, {
     tableName: 'Achievements',
-    timestamps: true
+    timestamps: true,
+    indexes: [
+      {
+        unique: true,
+        fields: ['userId', 'description'] 
+      }
+    ]
   });
+
   return Achievement;
 };

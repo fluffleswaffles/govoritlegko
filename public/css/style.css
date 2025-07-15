@@ -792,3 +792,38 @@ button.submit-btn:hover {
 .reject-friend-btn:hover {
   background: #c62828;
 }
+
+.accordion-header {
+  cursor: pointer;
+  padding: 10px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.accordion-content {
+  max-height: 0;
+  overflow: hidden;
+  transition: max-height 0.3s ease;
+}
+
+.accordion-icon {
+  transition: transform 0.3s ease;
+  font-size: 0.8em;
+}
+
+.accordion-header.active .accordion-icon {
+  transform: rotate(180deg);
+}
+
+.profile-achievements-list.accordion-content {
+  display: none;
+}
+
+.profile-achievements-list.accordion-content.show {
+  display: block;
+}
+
+.accordion-header.active .accordion-icon {
+  transform: rotate(180deg);
+}

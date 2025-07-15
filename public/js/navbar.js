@@ -10,6 +10,12 @@ function handleAccountClick() {
   return false;
 }
 
+window.addEventListener("load", () => {
+  const token = localStorage.getItem("token");
+  if (token) {
+    document.cookie = `jwt=${encodeURIComponent(token)}; path=/; SameSite=Lax`;
+  }
+});
 function openLoginModal() {
   const modal = document.getElementById('loginModal');
   if (modal) {
@@ -55,6 +61,19 @@ function showRegister() {
   }
 }
 
+window.toggleAchievements = function() {
+  const content = document.getElementById('profileAchievements');
+  const header = document.querySelector('.profile-achievements-section .accordion-header');
+  
+  if (!content || !header) {
+    console.error('Элементы аккордеона не найдены!');
+    return;
+  }
+  content.style.display = content.style.display === 'none' ? 'block' : 'none';
+  header.classList.toggle('active'); 
+  console.log('Achievements toggled!', content.style.display);
+};
+
 function openProfileModal() {
   let modal = document.getElementById('profileModal');
   if (!modal) {
@@ -86,8 +105,10 @@ function openProfileModal() {
               <div id="addFriendFormContainer"></div>
             </div>
             <div class="profile-achievements-section profile-card">
-              <div class="profile-section-title">Достижения</div>
-              <div id="profileAchievements" class="profile-achievements-list"></div>
+              <div class="profile-section-title accordion-header" onclick="window.toggleAchievements()">
+                Достижения <span class="accordion-icon">▼</span>
+              </div>
+              <div id="profileAchievements" class="profile-achievements-list" style="display:none;"></div>
             </div>
           </div>
         </div>
@@ -195,7 +216,10 @@ async function fetchUserProfile() {
     }
     const achievementsEl = document.getElementById('profileAchievements');
     if (achievementsEl) {
-      achievementsEl.innerHTML = (data.achievements && data.achievements.length ? data.achievements.map(a => `<span class=\"profile-achievement\">🏆 ${a.title}</span>`).join('') : '<span class="profile-achievement-empty">нет</span>');
+      achievementsEl.innerHTML = data.achievements?.length 
+        ? data.achievements.map(a => `<span class="profile-achievement">🏆 ${a.title}</span>`).join('') 
+        : '<span class="profile-achievement-empty">нет</span>';
+      achievementsEl.style.display = 'none';
     }
     const messagesEl = document.getElementById('profileMessages');
     if (messagesEl) {

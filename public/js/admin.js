@@ -56,6 +56,7 @@ function initModals() {
 
 function setupForms() {
   const gameForm = document.getElementById('add-game-form');
+  const addItemForm = document.getElementById('add-item-form'); 
   if (gameForm) {
     gameForm.addEventListener('submit', async (e) => {
       e.preventDefault();
@@ -77,6 +78,28 @@ function setupForms() {
       } catch (err) {
         console.error('[admin.js] Ошибка загрузки игры', err);
         alert('Ошибка загрузки игры');
+      }
+      return false;
+    });
+  }
+
+    if (addItemForm) {
+    addItemForm.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const formData = new FormData(addItemForm);
+      try {
+        const resp = await fetch(`${API_BASE}/api/admin/items`, {
+          method: 'POST',
+          headers: { 'Authorization': `Bearer ${localStorage.getItem('token')}` },
+          body: formData
+        });
+        if (!resp.ok) throw new Error('Ошибка добавления предмета');
+        addItemForm.reset();
+        await loadItems();
+        alert('Предмет добавлен!');
+      } catch (err) {
+        console.error('[admin.js] Ошибка добавления предмета', err);
+        alert('Ошибка добавления предмета');
       }
       return false;
     });

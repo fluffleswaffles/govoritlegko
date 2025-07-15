@@ -130,6 +130,20 @@ FriendRequest.belongsTo(User, { as: 'receiver', foreignKey: 'friendId' });
 
 const app = express();
 
+app.use(express.json({
+  verify: (req, res, buf) => {
+    req.rawBody = buf.toString();
+  }
+}));
+
+app.use(express.json());
+app.use(express.urlencoded({ extended: true }));
+
+app.get('/ping', (req, res) => {
+  console.log('Ping received');
+  res.send('pong');
+});
+
 app.use(cors({
   origin: [
     'http://localhost:3000',
@@ -140,7 +154,9 @@ app.use(cors({
     'http://127.0.0.1:8080',
     'file://',
     'http://localhost',
-    'http://127.0.0.1'
+    'http://127.0.0.1',
+    'http://v402749.hosted-by-vdsina.com',
+    'http://146.103.97.74'
   ],
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization'],
@@ -280,6 +296,7 @@ app.get('/api/auth/check', async (req, res) => {
     res.sendStatus(403);
   }
 });
+
 
 app.get('/api/admin/users', requireAdmin, async (req, res) => {
   try {
@@ -563,7 +580,7 @@ app.post('/api/avatar/equip', async (req, res) => {
     const token = authHeader.split(' ')[1];
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
     const { itemId, itemType } = req.body;
-    console.log('Equip request:', { userId: decoded.id, itemId, itemType });
+    //console.log('Equip request:', { userId: decoded.id, itemId, itemType });
     const item = await Item.findByPk(itemId);
     if (!item) {
       return res.status(404).json({ message: 'Item not found' });
@@ -816,10 +833,105 @@ app.delete('/api/admin/news/:id', requireAdmin, async (req, res) => {
 
 app.use('/api/games', gamesRouter);
 
-app.use((err, req, res, next) => {
-  res.status(err.status || 500);
-  res.set('Content-Type', 'application/json');
-  res.json({ message: err.message || 'Internal server error' });
+app.post('/api/game/reward', async (req, res) => {
+  console.log('Full request body:', req.body);
+  
+  try {
+    const token = req.headers.authorization?.split(' ')[1];
+    if (!token) {
+      return res.status(401).json({ error: 'Требуется авторизация' });
+    }
+
+    const decoded = jwt.verify(token, process.env.JWT_SECRET);
+    const userId = decoded.id;
+    const rewardAmount = 10;
+    await User.increment('coins', { by: rewardAmount, where: { id: userId } });
+    
+    res.json({ 
+      success: true,
+      newBalance: (await User.findByPk(userId)).coins
+    });
+
+  } catch (err) {
+    console.error('Error in reward endpoint:', err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.post('/api/game/send-coins', async (req, res) => {
+  const t = await sequelize.transaction();
+  try {
+    let body;
+    try {
+      body = JSON.parse(req.rawBody || '{}');
+    } catch (e) {
+      await t.rollback();
+      return res.status(400).json({ error: 'Invalid JSON' });
+    }
+
+    console.log('Parsed body:', body);
+
+    if (!body.rewardKey) {
+      await t.rollback();
+      return res.status(400).json({ error: 'rewardKey is required' });
+    }
+
+    const token = req.headers.authorization?.split(' ')[1];
+    if (!token) {
+      await t.rollback();
+      return res.status(401).json({ error: 'Authorization required' });
+    }
+
+    const decoded = jwt.verify(token, process.env.JWT_SECRET);
+    const userId = decoded.id;
+
+    const user = await User.findByPk(userId, { transaction: t });
+    if (!user) {
+      await t.rollback();
+      return res.status(404).json({ error: 'User not found' });
+    }
+
+    const existingAchievement = await Achievement.findOne({
+      where: { description: body.rewardKey },
+      transaction: t,
+      lock: t.LOCK.UPDATE
+    });
+
+    if (existingAchievement) {
+      await t.rollback();
+      return res.status(400).json({ error: 'Achievement already exists' });
+    }
+
+    const coins = parseInt(body.coins) || 10;
+    await user.increment('coins', { by: coins, transaction: t });
+
+    const achievement = await Achievement.create({
+      userId,
+      title: `Game Reward: +${coins} coins`,
+      description: body.rewardKey,
+      reward: `${coins} coins`,
+      createdAt: new Date(),
+      updatedAt: new Date()
+    }, { transaction: t });
+
+    console.log('Achievement created:', achievement.toJSON());
+    await t.commit();
+
+    res.json({
+      success: true,
+      coinsAdded: coins,
+      newBalance: user.coins + coins,
+      achievementId: achievement.id
+    });
+
+  } catch (err) {
+    await t.rollback();
+    console.error('ERROR:', err);
+    res.status(500).json({ 
+      error: 'Server error',
+      details: err.message
+    });
+  }
 });
 
 async function start() {

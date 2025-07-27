@@ -40,23 +40,57 @@ function setupGameForm() {
     console.log('[admin-games.js] add-game-form НЕ найден');
     return;
   }
+
   form.addEventListener('submit', async (e) => {
     e.preventDefault();
     console.log('[admin-games.js] submit add-game-form');
-    const formData = new FormData(form);
-    for (let [key, value] of formData.entries()) {
-      console.log(`[admin-games.js] formData: ${key} =`, value);
+
+    const formData = new FormData();
+    const id = form.querySelector('input[name="id"]').value;
+    const name = form.querySelector('input[name="name"]').value;
+    const description = form.querySelector('input[name="description"]').value;
+    const iconFile = form.querySelector('input[name="icon"]').files[0];
+
+    if (!id || !name || !iconFile) {
+      alert('Пожалуйста, заполните все обязательные поля и загрузите иконку.');
+      return;
     }
+
+    formData.append('id', id);
+    formData.append('name', name);
+    formData.append('description', description);
+    formData.append('icon', iconFile);
+    const unityInput = document.getElementById('unity-build-input');
+    const files = unityInput.files;
+
+    if (!files.length) {
+      alert('Пожалуйста, выберите папку со сборкой Unity WebGL');
+      return;
+    }
+
+    for (let file of files) {
+      const relativePath = file.webkitRelativePath || file.name;
+      formData.append('files', file, relativePath);
+    }
+
     try {
       const resp = await fetch(`${window.API_BASE}/api/games`, {
         method: 'POST',
         headers: { 'Authorization': `Bearer ${localStorage.getItem('token')}` },
         body: formData
       });
+
       console.log('[admin-games.js] fetch response', resp.status);
-      form.reset();
-      await loadGames();
-      alert('Игра добавлена!');
+
+      if (resp.ok) {
+        form.reset();
+        await loadGames();
+        alert('Игра добавлена!');
+      } else {
+        const errData = await resp.json();
+        console.error('[admin-games.js] Ошибка от сервера:', errData);
+        alert('Ошибка при добавлении игры: ' + errData.message);
+      }
     } catch (err) {
       console.error('[admin-games.js] Ошибка загрузки игры', err);
       alert('Ошибка загрузки игры');
@@ -64,6 +98,7 @@ function setupGameForm() {
     return false;
   });
 }
+
 
 window.editGame = function(id) {
   alert('Редактирование пока не реализовано');

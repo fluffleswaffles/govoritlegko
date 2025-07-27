@@ -10,15 +10,36 @@ const GAMES_DIR = path.join(__dirname, '../../public/games');
 const storage = multer.diskStorage({
   destination: (req, file, cb) => {
     const gameId = req.body.id || req.params.id;
+    let filePath = file.originalname;
+    if (filePath.startsWith('TemplateData/')) {
+      const dir = path.join(GAMES_DIR, gameId, 'TemplateData');
+      fs.mkdirSync(dir, { recursive: true });
+      return cb(null, dir);
+    }
     const dir = path.join(GAMES_DIR, gameId);
     fs.mkdirSync(dir, { recursive: true });
     cb(null, dir);
   },
   filename: (req, file, cb) => {
-    cb(null, file.originalname);
+    const baseName = path.basename(file.originalname);
+    cb(null, baseName);
   }
 });
-const upload = multer({ storage });
+
+const upload = multer({
+  storage: multer.diskStorage({
+    destination: (req, file, cb) => {
+      const gameId = req.body.id || req.params.id;
+      const relativePath = file.originalname;
+      const fullPath = path.join(GAMES_DIR, gameId, path.dirname(relativePath));
+      fs.mkdirSync(fullPath, { recursive: true });
+      cb(null, fullPath);
+    },
+    filename: (req, file, cb) => {
+      cb(null, path.basename(file.originalname));
+    }
+  })
+});
 
 router.use((req, res, next) => {
   console.log(`[GAMES ROUTE] ${req.method} ${req.originalUrl}`);
@@ -30,22 +51,24 @@ router.get('/', (req, res) => {
 });
 
 router.post('/', upload.fields([
-  { name: 'files', maxCount: 10 },
+  { name: 'files', maxCount: 30 },
   { name: 'icon', maxCount: 1 }
 ]), (req, res) => {
-  console.log('POST /api/games body:', req.body);
-  console.log('POST /api/games files:', req.files);
   const { id, name, description } = req.body;
   if (!id || !name) {
-    console.log('Missing id or name');
     return res.status(400).json({ message: 'id and name required' });
   }
+
   let iconUrl = '';
-  if (req.files && req.files.icon && req.files.icon[0]) {
+  if (req.files?.icon?.[0]) {
     iconUrl = `/games/${id}/${req.files.icon[0].originalname}`;
   }
-  const files = req.files.files ? req.files.files.map(f => f.originalname) : [];
-  addGame({ id, name, description, iconUrl, files });
+
+  const uploadedFiles = req.files.files || [];
+  const fileNames = uploadedFiles.map(f => f.originalname);
+
+  addGame({ id, name, description, iconUrl, files: fileNames });
+
   res.json({ success: true });
 });
 
@@ -58,6 +81,8 @@ router.put('/:id', (req, res) => {
 
 router.delete('/:id', (req, res) => {
   deleteGame(req.params.id);
+  const dir = path.join(GAMES_DIR, req.params.id);
+  fs.rmSync(dir, { recursive: true, force: true });
   res.json({ success: true });
 });
 

@@ -482,22 +482,60 @@ button.submit-btn:hover {
 }
 
 /* --- Профиль пользователя --- */
+.profile-modal {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.5);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  z-index: 1000;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.3s ease;
+}
+
+.profile-modal.active {
+  opacity: 1;
+  pointer-events: auto;
+}
+
 .profile-modal-content {
   background: #fdf5f2;
   border-radius: 18px;
-  max-width: 720px;
-  width: 96vw;
-  padding: 32px 32px 24px 32px;
+  max-width: 800px;
+  width: 90%;
+  max-height: 90vh;
+  overflow-y: auto;
+  padding: 30px;
   position: relative;
-  box-shadow: 0 8px 32px rgba(0,0,0,0.18);
-  display: flex;
-  flex-direction: column;
-  align-items: stretch;
-  text-align: left;
-  gap: 24px;
-  min-height: 380px;
+  transform: translateY(-20px);
+  transition: transform 0.3s ease;
 }
-/* Растягиваем блок информации о пользователе на всю высоту блока достижений */
+
+.profile-modal.active .profile-modal-content {
+  transform: translateY(0);
+}
+
+.close-profile-btn {
+  position: absolute;
+  top: 15px;
+  right: 15px;
+  background: none;
+  border: none;
+  font-size: 24px;
+  cursor: pointer;
+  color: #95b1fa;
+  z-index: 2;
+}
+
+.close-profile-btn:hover {
+  color: #355067;
+}
+
 .profile-main-row {
   display: grid;
   grid-template-columns: 1fr 2fr;
@@ -514,7 +552,6 @@ button.submit-btn:hover {
   height: 100%;
 }
 
-/* Форматирование текста в блоке информации о пользователе */
 .profile-info-block {
   background: #eaf1ff;
   border-radius: 14px;
@@ -553,6 +590,27 @@ button.submit-btn:hover {
   margin-top: 2px;
   display: inline-block;
   font-weight: 400;
+}
+
+.friend-modal {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.5);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  z-index: 1001;
+  opacity: 0;
+  transition: opacity 0.3s ease;
+  pointer-events: none;
+}
+
+.friend-modal.active {
+  opacity: 1;
+  pointer-events: auto;
 }
 
 .profile-friends-achievements {
@@ -610,26 +668,72 @@ button.submit-btn:hover {
   padding: 10px 0 6px 0;
   margin: 0;
 }
+
 .profile-achievements-list {
-  display: flex;
-  flex-direction: row;
-  gap: 10px;
-  flex-wrap: wrap;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+  gap: 12px;
+  max-height: 300px;
+  overflow-y: auto;
+  padding: 8px 4px;
+  margin-top: 8px;
+  align-content: flex-start;
 }
+
 .profile-achievement {
-  background: #ffe6b3;
+  background: linear-gradient(135deg, #ffe6b3 0%, #ffd166 100%);
   color: #a67c00;
   border-radius: 12px;
-  padding: 6px 14px;
-  font-size: 1em;
+  padding: 10px 12px;
+  font-size: 0.95em;
   font-weight: 500;
-  box-shadow: 0 1px 4px rgba(255,230,179,0.13);
-  transition: background 0.2s, color 0.2s;
+  box-shadow: 0 2px 6px rgba(0,0,0,0.1);
+  transition: all 0.2s ease;
+  display: flex;
+  align-items: center;
+  min-height: 40px;
+  word-break: break-word;
+  white-space: normal;
+  border: 1px solid #ffc107;
 }
+
 .profile-achievement:hover {
-  background: #fff2cc;
-  color: #b38b00;
+  transform: translateY(-2px);
+  box-shadow: 0 4px 10px rgba(0,0,0,0.15);
 }
+
+.profile-achievement::before {
+  content: '🏆';
+  margin-right: 8px;
+  font-size: 1.2em;
+}
+
+.profile-achievements-section:after {
+  content: '';
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  height: 20px;
+  background: linear-gradient(to bottom, rgba(234,241,255,0) 0%, rgba(234,241,255,1) 100%);
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 0.3s;
+  border-radius: 0 0 16px 16px;
+}
+
+.profile-achievements-section.scrollable:after {
+  opacity: 1;
+}
+
+.profile-achievement-empty {
+  color: #aaa;
+  font-size: 0.98em;
+  text-align: center;
+  width: 100%;
+  padding: 10px 0;
+}
+
 .profile-messages {
   margin-top: 18px;
   background: #f5faff;
@@ -796,9 +900,22 @@ button.submit-btn:hover {
 .accordion-header {
   cursor: pointer;
   padding: 10px;
+  background: #d5e3ff;
+  border-radius: 8px;
+  margin-bottom: 5px;
   display: flex;
   justify-content: space-between;
   align-items: center;
+  transition: background 0.2s;
+}
+
+.accordion-header:hover {
+  background: #bad7ff;
+}
+
+.accordion-header.active {
+  background: #95b1fa;
+  color: white;
 }
 
 .accordion-content {
@@ -810,6 +927,7 @@ button.submit-btn:hover {
 .accordion-icon {
   transition: transform 0.3s ease;
   font-size: 0.8em;
+  margin-left: 10px;
 }
 
 .accordion-header.active .accordion-icon {
@@ -826,4 +944,22 @@ button.submit-btn:hover {
 
 .accordion-header.active .accordion-icon {
   transform: rotate(180deg);
+}
+
+.profile-achievements-list::-webkit-scrollbar {
+  width: 8px;
+}
+
+.profile-achievements-list::-webkit-scrollbar-track {
+  background: #f1f1f1;
+  border-radius: 4px;
+}
+
+.profile-achievements-list::-webkit-scrollbar-thumb {
+  background: #95b1fa;
+  border-radius: 4px;
+}
+
+.profile-achievements-list::-webkit-scrollbar-thumb:hover {
+  background: #7d9ae8;
 }

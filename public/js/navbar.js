@@ -65,13 +65,35 @@ window.toggleAchievements = function() {
   const content = document.getElementById('profileAchievements');
   const header = document.querySelector('.profile-achievements-section .accordion-header');
   
-  if (!content || !header) {
-    console.error('Элементы аккордеона не найдены!');
-    return;
+  if (!content || !header) return;
+
+  const isOpening = content.style.display === 'none';
+  
+  if (isOpening) {
+    content.style.display = 'block';
+    content.style.maxHeight = '0';
+    content.style.overflow = 'hidden';
+    content.style.transition = 'max-height 0.3s ease, opacity 0.3s ease';
+    
+    setTimeout(() => {
+      content.style.maxHeight = '300px';
+      content.style.opacity = '1';
+    }, 10);
+  } else {
+    content.style.maxHeight = '0';
+    content.style.opacity = '0';
+    content.style.overflow = 'hidden';
+    
+    setTimeout(() => {
+      content.style.display = 'none';
+    }, 300);
   }
-  content.style.display = content.style.display === 'none' ? 'block' : 'none';
-  header.classList.toggle('active'); 
-  console.log('Achievements toggled!', content.style.display);
+  
+  header.classList.toggle('active');
+  const icon = header.querySelector('.accordion-icon');
+  if (icon) {
+    icon.style.transform = isOpening ? 'rotate(180deg)' : 'rotate(0deg)';
+  }
 };
 
 function openProfileModal() {
@@ -79,13 +101,13 @@ function openProfileModal() {
   if (!modal) {
     modal = document.createElement('div');
     modal.id = 'profileModal';
-    modal.className = 'news-modal';
+    modal.className = 'profile-modal';
     modal.setAttribute('aria-hidden', 'true');
     modal.setAttribute('role', 'dialog');
     modal.setAttribute('aria-modal', 'true');
     modal.innerHTML = `
       <div class="profile-modal-content">
-        <button class="close-news-btn" aria-label="Закрыть профиль" onclick="closeProfileModal()">×</button>
+        <button class="close-profile-btn" aria-label="Закрыть профиль" onclick="closeProfileModal()">×</button>
         <div class="profile-main-row">
           <div class="profile-avatar-block">
             <div id="profileAvatarWrap" class="profile-avatar-img"></div>
@@ -117,10 +139,10 @@ function openProfileModal() {
     `;
     document.body.appendChild(modal);
   }
-  fetchUserProfile();
+  
   modal.classList.add('active');
   modal.setAttribute('aria-hidden', 'false');
-  modal.querySelector('.profile-modal-content').classList.add('active');
+  fetchUserProfile();
 }
 
 function closeProfileModal() {
@@ -217,10 +239,19 @@ async function fetchUserProfile() {
     const achievementsEl = document.getElementById('profileAchievements');
     if (achievementsEl) {
       achievementsEl.innerHTML = data.achievements?.length 
-        ? data.achievements.map(a => `<span class="profile-achievement">🏆 ${a.title}</span>`).join('') 
-        : '<span class="profile-achievement-empty">нет</span>';
-      achievementsEl.style.display = 'none';
+        ? data.achievements.map(a => `
+            <div class="profile-achievement" title="${a.description || a.title}">
+              ${a.title}
+            </div>
+          `).join('') 
+        : '<div class="profile-achievement-empty">Нет достижений</div>';
     }
+    setTimeout(() => {
+      const achievementsList = document.getElementById('profileAchievements');
+      if (achievementsList && achievementsList.scrollHeight > achievementsList.clientHeight) {
+        achievementsList.parentElement.classList.add('scrollable');
+      }
+    }, 300);
     const messagesEl = document.getElementById('profileMessages');
     if (messagesEl) {
       messagesEl.innerHTML = '<b>Сообщения:</b><br>' + (data.messages && data.messages.length ? data.messages.map(m => `<div class=\"profile-message\"><div>${m.text}</div>${m.reward ? `<div class=\"profile-message-reward\">Награда: ${m.reward}</div>` : ''}</div>`).join('') : 'нет новых сообщений');
@@ -340,6 +371,7 @@ async function fetchUserProfile() {
 }
 
 function openFriendProfileModal(friendId) {
+  closeFriendProfileModal();
   let modal = document.getElementById('friendProfileModal');
   if (!modal) {
     modal = document.createElement('div');
@@ -374,6 +406,9 @@ function openFriendProfileModal(friendId) {
     `;
     document.body.appendChild(modal);
   }
+  setTimeout(() => {
+    modal.style.opacity = '1';
+  }, 10); 
   fetchFriendProfile(friendId);
   modal.classList.add('active');
   modal.setAttribute('aria-hidden', 'false');
@@ -383,9 +418,13 @@ function openFriendProfileModal(friendId) {
 function closeFriendProfileModal() {
   const modal = document.getElementById('friendProfileModal');
   if (modal) {
-    modal.classList.remove('active');
-    modal.setAttribute('aria-hidden', 'true');
-    modal.querySelector('.profile-modal-content').classList.remove('active');
+    modal.style.opacity = '0';
+    modal.style.transition = 'opacity 0.3s ease';
+    setTimeout(() => {
+      if (modal.parentNode) {
+        modal.parentNode.removeChild(modal);
+      }
+    }, 300);
   }
 }
 

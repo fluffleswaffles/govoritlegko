@@ -1,1 +1,52 @@
-[]
+[
+  {
+    "id": "ios",
+    "name": "Остров Звуков",
+    "description": "Отправься в увлекательное путешествие на Острове Звуков!",
+    "iconUrl": "/games/ios/soundislandlogo.png",
+    "files": [
+      "index.html",
+      "progress-bar-empty-dark.png",
+      "unity-logo-light.png",
+      "progress-bar-full-dark.png",
+      "webmemd-icon.png",
+      "unity-logo-dark.png",
+      "progress-bar-empty-light.png",
+      "fullscreen-button.png",
+      "MemoryProfiler.png",
+      "unity-logo-title-footer.png",
+      "progress-bar-full-light.png",
+      "favicon.ico",
+      "style.css",
+      "soundisland.data",
+      "soundisland.framework.js",
+      "soundisland.wasm",
+      "soundisland.loader.js"
+    ]
+  },
+  {
+    "id": "ios",
+    "name": "Остров Звуков",
+    "description": "Отправься в увлекательное путешествие на Острове Звуков!",
+    "iconUrl": "/games/ios/soundislandlogo.png",
+    "files": [
+      "index.html",
+      "progress-bar-empty-dark.png",
+      "unity-logo-light.png",
+      "progress-bar-full-dark.png",
+      "webmemd-icon.png",
+      "unity-logo-dark.png",
+      "progress-bar-empty-light.png",
+      "fullscreen-button.png",
+      "MemoryProfiler.png",
+      "unity-logo-title-footer.png",
+      "progress-bar-full-light.png",
+      "favicon.ico",
+      "style.css",
+      "soundisland.data",
+      "soundisland.framework.js",
+      "soundisland.wasm",
+      "soundisland.loader.js"
+    ]
+  }
+]
